@@ -127,7 +127,15 @@ const ChatPage = () => {
                   <MetricChip icon={Smile} label="Emotion" value={msg.emotion || 'CALM'} color="#8b5cf6" />
                   <MetricChip icon={Target} label="Intent" value={msg.intent || 'SUPPORT'} color="#3b82f6" />
                   <MetricChip icon={Activity} label="Sentiment" value={msg.sentiment || 'POSITIVE'} color="#06b6d4" />
+                  <MetricChip icon={Sparkles} label="Policy" value={msg.policy || 'ADAPTIVE'} color="#f59e0b" />
                 </div>
+
+                {msg.reflection?.summary && (
+                  <div className="max-w-[80%] px-4 py-3 rounded-2xl bg-white/5 border border-white/5">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-text-muted mb-1">Adaptive Reflection</p>
+                    <p className="text-xs text-text-secondary">{msg.reflection.summary}</p>
+                  </div>
+                )}
               </motion.div>
             </div>
           ))}

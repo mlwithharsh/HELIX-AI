@@ -65,6 +65,7 @@ const TextMode = () => {
                 <MetricChip icon={Smile} label="Emotion" value={lastResponse.emotion || 'SOFT'} color="#c084fc" />
                 <MetricChip icon={Target} label="Intent" value={lastResponse.intent || 'SUPPORT'} color="#60a5fa" />
                 <MetricChip icon={Activity} label="Sentiment" value={lastResponse.sentiment || '0.92'} color="#2dd4bf" />
+                <MetricChip icon={Sparkles} label="Policy" value={lastResponse.policy || 'ADAPTIVE'} color="#f59e0b" />
               </div>
 
               {/* AI Message Bubble */}
@@ -82,6 +83,12 @@ const TextMode = () => {
                   <p className="text-slate-700 leading-relaxed font-medium">
                     {lastResponse.response || lastResponse.text}
                   </p>
+                  {lastResponse.reflection?.summary && (
+                    <div className="mt-4 rounded-2xl bg-slate-50 border border-slate-100 px-4 py-3">
+                      <p className="text-[8px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-1">Adaptive Reflection</p>
+                      <p className="text-xs text-slate-500">{lastResponse.reflection.summary}</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </motion.div>

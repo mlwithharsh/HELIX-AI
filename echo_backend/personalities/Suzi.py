@@ -7,7 +7,7 @@ class Suzi(BasePersonality):
         super().__init__(name="Suzi", style="naughty, playful, bold", goals="make conversation fun, teasing, and a little tharki but caring")
         self.nlp = NLPEngine() 
 
-    def respond(self, user_input, memory, analysis=None):
+    def respond(self, user_input, memory, analysis=None, adaptive_context=None):
         if not analysis:
             try:
                 analysis = self.nlp.get_analysis(user_input)
@@ -18,7 +18,11 @@ class Suzi(BasePersonality):
         intent = analysis.get("intent", "unknown")
         emotion = analysis.get("emotion", "neutral")
         sentiment = analysis.get("sentiment", "neutral")
-        # Removed context lookup as it's not currently provided by nlp.analyze()
+        adaptive_context = adaptive_context or {}
+        emotional_state = adaptive_context.get("emotional_state", {})
+        policy_state = adaptive_context.get("policy_state", {})
+        alignment = emotional_state.get("alignment", "balanced")
+        policy = policy_state.get("policy", "curious")
 
         # Apna Suzi personality prompt banao
         system_prompt = (
@@ -28,6 +32,8 @@ class Suzi(BasePersonality):
             f"User's emotion: {emotion}\n"
             f"User's intent: {intent}\n"
             f"Sentiment: {sentiment}\n"
+            f"Adaptive alignment: {alignment}\n"
+            f"Adaptive policy: {policy}\n"
             f"User said: {user_input}\n"
             "Always talk in a playful, teasing, naughty-but-caring way. "
             "Never reply in a formal or generic style. "
@@ -61,7 +67,7 @@ class Suzi(BasePersonality):
             ])
 
         # Save memory
-        if memory:
+        if memory and False:
             memory.add_memory(user_input, response)
 
         return response

@@ -41,13 +41,13 @@ class PersonalityRouter:
             # Fallback to echo if not found, instead of raising error which crashes backend
             self.active = "echo"
 
-    def get_response(self, user_input, memory, analysis=None):
+    def get_response(self, user_input, memory, analysis=None, adaptive_context=None):
         try:
             if self.active in self.personalities:
-                return self.personalities[self.active].respond(user_input, memory, analysis)
+                return self.personalities[self.active].respond(user_input, memory, analysis, adaptive_context)
             else:
                 # Fallback to echo personality if active personality not found
-                return self.personalities["echo"].respond(user_input, memory, analysis)
+                return self.personalities["echo"].respond(user_input, memory, analysis, adaptive_context)
         except Exception as e:
             # Return a safe fallback response
             return "I'm having trouble processing your request right now. Please try again."
