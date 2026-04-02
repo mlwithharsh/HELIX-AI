@@ -1,0 +1,11 @@
+version: "3.9"
+
+services:
+  rl-trainer:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    volumes:
+      - ../logs:/app/logs
+      - ../memory:/app/memory
+    command: ["python", "train_rl.py", "--model-name", "distilgpt2", "--epochs", "1"]
