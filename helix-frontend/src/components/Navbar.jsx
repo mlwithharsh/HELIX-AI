@@ -38,9 +38,23 @@ const Navbar = () => {
               <span>{item.name}</span>
             </a>
           ))}
-          <a href="/chat.html" className="btn-solace-primary !py-2 !px-6 text-sm">
-            Get Support
-          </a>
+          {localStorage.getItem('helix_user_id') ? (
+            <button 
+              onClick={() => { localStorage.removeItem('helix_user_id'); window.location.href = '/'; }}
+              className="btn-solace-outline !py-2 !px-6 text-sm"
+            >
+              Logout
+            </button>
+          ) : (
+            <div className="flex items-center space-x-4">
+              <a href="/login.html" className="text-sm font-bold text-text-secondary hover:text-solace-purple transition-colors">
+                Login
+              </a>
+              <a href="/signup.html" className="btn-solace-primary !py-2 !px-6 text-sm">
+                Sign up
+              </a>
+            </div>
+          )}
         </div>
 
         {/* Mobile Menu Toggle */}
@@ -67,13 +81,31 @@ const Navbar = () => {
               <span className="text-lg font-medium">{item.name}</span>
             </a>
           ))}
-          <a
-            href="/chat.html"
-            onClick={() => setIsOpen(false)}
-            className="block btn-solace-primary text-center"
-          >
-            Get Support
-          </a>
+          {localStorage.getItem('helix_user_id') ? (
+            <button
+               onClick={() => { localStorage.removeItem('helix_user_id'); window.location.href = '/'; }}
+              className="block w-full btn-solace-outline text-center"
+            >
+              Logout
+            </button>
+          ) : (
+            <div className="space-y-4">
+               <a
+                href="/login.html"
+                onClick={() => setIsOpen(false)}
+                className="block text-center text-text-secondary font-bold"
+              >
+                Login
+              </a>
+              <a
+                href="/signup.html"
+                onClick={() => setIsOpen(false)}
+                className="block btn-solace-primary text-center"
+              >
+                Sign up
+              </a>
+            </div>
+          )}
         </motion.div>
       )}
     </nav>

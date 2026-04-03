@@ -10,6 +10,8 @@ export default defineConfig({
         main: 'index.html',
         chat: 'chat.html',
         about: 'about.html',
+        login: 'login.html',
+        signup: 'signup.html',
       },
     },
     emptyOutDir: false,

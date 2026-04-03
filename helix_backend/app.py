@@ -18,6 +18,7 @@ from Core_Brain.nlp_engine.nlp_engine import NLPEngine
 from Core_Brain.memory_manager import MemoryManager
 from Core_Brain.nlp_engine.personality_router import PersonalityRouter
 from Core_Brain.adaptive_core.orchestration import AdaptiveOrchestrator
+from Core_Brain.auth_manager import AuthManager
 
 # Load environment variables BEFORE initializing components
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'helix-frontend', '.env'))
@@ -30,10 +31,42 @@ nlp_engine = NLPEngine()
 memory_manager = MemoryManager()
 personality_router = PersonalityRouter()
 adaptive_orchestrator = AdaptiveOrchestrator(memory_manager)
+auth_manager = AuthManager()
 
 @app.route('/', methods=['GET'])
 def root():
     return jsonify({"message": "HELIX V1 Backend is active", "status": "online"})
+
+@app.route('/api/auth/signup', methods=['POST'])
+def signup():
+    data = request.json
+    email = data.get('email')
+    password = data.get('password')
+    name = data.get('name', '')
+    
+    if not email or not password:
+        return jsonify({"error": "Missing email or password"}), 400
+        
+    user_id, error = auth_manager.signup(email, password, name)
+    if error:
+        return jsonify({"error": error}), 400
+    
+    return jsonify({"user_id": user_id, "message": "Signup successful"})
+
+@app.route('/api/auth/login', methods=['POST'])
+def login():
+    data = request.json
+    email = data.get('email')
+    password = data.get('password')
+    
+    if not email or not password:
+        return jsonify({"error": "Missing email or password"}), 400
+        
+    user_id, error = auth_manager.login(email, password)
+    if error:
+        return jsonify({"error": error}), 401
+    
+    return jsonify({"user_id": user_id, "message": "Login successful"})
 
 @app.errorhandler(404)
 def not_found(error):
