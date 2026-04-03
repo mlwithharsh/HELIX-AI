@@ -49,13 +49,13 @@ const LandingPage = () => {
             transition={{ duration: 0.8, delay: 0.6 }}
             className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4"
           >
-            <a href="/chat.html" className="btn-solace-primary flex items-center space-x-2 group">
+            <Link to="/chat" className="btn-solace-primary flex items-center space-x-2 group">
               <span>Start Your Conversation</span>
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </a>
-            <a href="/about.html" className="btn-solace-outline">
+            </Link>
+            <Link to="/about" className="btn-solace-outline">
               Learn More
-            </a>
+            </Link>
           </motion.div>
         </div>
       </section>

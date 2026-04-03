@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Mail, Lock, User, ArrowRight, Sparkles } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
 const SignupPage = () => {
+  const navigate = useNavigate();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -27,7 +29,7 @@ const SignupPage = () => {
         password
       });
       localStorage.setItem('helix_user_id', res.data.user_id);
-      window.location.href = '/chat.html';
+      navigate('/chat');
     } catch (err) {
       setError(err.response?.data?.error || 'Signup failed. Email may already be in use.');
     } finally {
@@ -135,12 +137,12 @@ const SignupPage = () => {
           </button>
         </form>
 
-        <div className="mt-8 text-center">
-          <p className="text-text-secondary">
+        <div className="mt-8 text-center pt-6 border-t border-black/5">
+          <p className="text-sm font-medium text-text-secondary">
             Already have an account?{' '}
-            <a href="/login.html" className="text-solace-purple font-bold hover:underline">
-              Sign in
-            </a>
+            <Link to="/login" className="text-solace-purple font-black hover:underline underline-offset-4">
+              SIGN IN
+            </Link>
           </p>
         </div>
       </motion.div>

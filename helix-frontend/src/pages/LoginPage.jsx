@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Mail, Lock, ArrowRight, Sparkles } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
 const LoginPage = () => {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -20,7 +22,7 @@ const LoginPage = () => {
         password
       });
       localStorage.setItem('helix_user_id', res.data.user_id);
-      window.location.href = '/chat.html';
+      navigate('/chat');
     } catch (err) {
       setError(err.response?.data?.error || 'Login failed. Please check your credentials.');
     } finally {
@@ -101,13 +103,12 @@ const LoginPage = () => {
         <div className="mt-8 text-center pt-6 border-t border-black/5">
           <p className="text-sm font-medium text-text-secondary">
             NEW USER?{' '}
-            <motion.a 
-              whileHover={{ scale: 1.05 }}
-              href="/signup.html" 
-              className="text-solace-purple font-black hover:underline underline-offset-4"
+            <Link 
+              to="/signup" 
+              className="text-solace-purple font-black hover:underline underline-offset-4 inline-block transform hover:scale-105 transition-transform"
             >
               CREATE AN ACCOUNT
-            </motion.a>
+            </Link>
           </p>
         </div>
       </motion.div>

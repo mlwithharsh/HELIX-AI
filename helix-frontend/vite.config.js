@@ -5,15 +5,6 @@ export default defineConfig({
   plugins: [react()],
   cacheDir: '.vite-cache',
   build: {
-    rollupOptions: {
-      input: {
-        main: 'index.html',
-        chat: 'chat.html',
-        about: 'about.html',
-        login: 'login.html',
-        signup: 'signup.html',
-      },
-    },
     emptyOutDir: false,
   },
 })

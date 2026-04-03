@@ -1,26 +1,10 @@
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import LandingPage from './pages/LandingPage'
-import Navbar from './components/Navbar'
-import Footer from './components/Footer'
-import { BrowserRouter as Router } from 'react-router-dom'
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
 import './index.css'
+import App from './App.jsx'
 
-// The Landing Page also needs the Context/Router to handle the theme and navigation
-const MainApp = () => (
-  <Router>
-    <div className="min-h-screen flex flex-col">
-      <Navbar />
-      <main className="flex-1">
-        <LandingPage />
-      </main>
-      <Footer />
-    </div>
-  </Router>
-)
-
-ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <MainApp />
-  </React.StrictMode>,
+createRoot(document.getElementById('root')).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
 )
