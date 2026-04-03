@@ -22,6 +22,7 @@ HELIX AI aims to bridge the gap between traditional AI assistants and deeply int
 ---
 
 ## Architecture
+```
 HELIX AI
 │
 ├── Core Engine
@@ -46,7 +47,7 @@ HELIX AI
 └── Infrastructure
 ├── Cloud Deployment
 └── Containerization (Docker)
-
+```
 ---
 
 ## Roadmap
