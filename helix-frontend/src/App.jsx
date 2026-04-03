@@ -17,7 +17,7 @@ import { AIProvider } from './context/AIContext';
 
 const AppContent = () => {
   const location = useLocation();
-  const isChatPage = location.pathname === '/chat';
+  const isChatPage = location.pathname === '/chat' || location.pathname === '/chat.html';
 
   return (
     <div className="min-h-screen flex flex-col">
