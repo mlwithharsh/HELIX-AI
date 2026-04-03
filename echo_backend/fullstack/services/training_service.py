@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
@@ -54,6 +55,7 @@ class OfflineRLHFService:
         version = f"{version_label}-{uuid4().hex[:8]}"
         adapter_dir = self.adapter_root / version
         adapter_dir.mkdir(parents=True, exist_ok=True)
+        (adapter_dir / "training_rows.json").write_text(json.dumps(training_rows, indent=2), encoding="utf-8")
         (adapter_dir / "README.txt").write_text(
             "Placeholder adapter artifact. Replace with LoRA weights from the offline PPO job.\n",
             encoding="utf-8",
