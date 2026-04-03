@@ -1,5 +1,5 @@
 import React from 'react';
-import { HashRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AnimatePresence } from 'framer-motion';
 
@@ -28,7 +28,9 @@ const AppContent = () => {
           <Routes location={location} key={location.pathname}>
             <Route path="/" element={<LandingPage />} />
             <Route path="/chat" element={<ChatPage />} />
+            <Route path="/chat.html" element={<ChatPage />} />
             <Route path="/about" element={<AboutPage />} />
+            <Route path="/about.html" element={<AboutPage />} />
           </Routes>
         </AnimatePresence>
       </main>
