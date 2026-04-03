@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Annotated
 
 from fastapi import BackgroundTasks, Depends, FastAPI
@@ -14,11 +15,13 @@ from .config import get_settings
 from .rate_limit import rate_limit_dependency
 from .schemas import FeedbackRequest, FeedbackResponse, PersonalityProfile, StatusResponse, TrainingRunRequest, TrainingRunResponse, ChatRequest
 from .services.model_service import AdaptiveInferenceService
-from .services.profile_adapter import update_profile_from_feedback
+from .services.profile_adapter import infer_profile_from_message, update_profile_from_feedback
 from .services.repository import SupabaseRepository
 from .services.retrieval_service import RetrievalService
 from .services.reward_service import feedback_reward
 from .services.training_service import OfflineRLHFService
+
+logger = logging.getLogger(__name__)
 
 settings = get_settings()
 repository = SupabaseRepository(settings)
@@ -38,6 +41,11 @@ app.add_middleware(
 
 AuthDep = Annotated[str, Depends(require_api_token)]
 RateDep = Annotated[None, Depends(rate_limit_dependency)]
+
+
+@app.get("/")
+async def root():
+    return {"message": "ECHO V1 API is online.", "docs": "/docs"}
 
 
 @app.get("/api/status", response_model=StatusResponse)
@@ -64,8 +72,13 @@ async def get_history(user_id: str, _: AuthDep, __: RateDep):
 
 @app.post("/api/chat")
 async def chat(request: ChatRequest, _: AuthDep, __: RateDep):
-    profile = request.personality_override or repository.get_user_profile(request.user_id)
+    # Always use server-side profile — no manual overrides from frontend
+    profile = repository.get_user_profile(request.user_id)
+
+    # Auto-infer profile adjustments from the current message
+    profile = infer_profile_from_message(profile, request.message)
     profile = repository.upsert_user_profile(profile)
+
     versions = repository.list_model_versions()
     retrieved = retrieval_service.retrieve_successful_examples(request.user_id, request.message)
     response_text, metadata, _ = await model_service.stream_response(
@@ -75,14 +88,18 @@ async def chat(request: ChatRequest, _: AuthDep, __: RateDep):
         history=request.history,
         retrieved_examples=retrieved,
         versions=versions,
+        personality=request.personality,
     )
     interaction = repository.create_interaction(request.user_id, request.message, response_text, metadata["model_version"], metadata)
     repository.store_embedding(interaction.id, request.user_id, embedding_preprocessor._hash_embedding(request.message), request.message)
+
+    logger.info(f"[Chat] user={request.user_id} personality={request.personality} backend={metadata['generation_backend']}")
+
     return {
         "interaction_id": interaction.id,
         "response": response_text,
         "model_version": metadata["model_version"],
-        "system_label": "adapting to your preferences",
+        "system_label": "Adapting to your preferences",
         "profile": profile.model_dump(),
         "metadata": metadata,
     }
@@ -90,8 +107,13 @@ async def chat(request: ChatRequest, _: AuthDep, __: RateDep):
 
 @app.post("/api/chat/stream")
 async def stream_chat(request: ChatRequest, _: AuthDep, __: RateDep):
-    profile = request.personality_override or repository.get_user_profile(request.user_id)
+    # Always use server-side profile — no manual overrides
+    profile = repository.get_user_profile(request.user_id)
+
+    # Auto-infer profile adjustments from the current message
+    profile = infer_profile_from_message(profile, request.message)
     profile = repository.upsert_user_profile(profile)
+
     versions = repository.list_model_versions()
     retrieved = retrieval_service.retrieve_successful_examples(request.user_id, request.message)
     response_text, metadata, iterator = await model_service.stream_response(
@@ -101,6 +123,7 @@ async def stream_chat(request: ChatRequest, _: AuthDep, __: RateDep):
         history=request.history,
         retrieved_examples=retrieved,
         versions=versions,
+        personality=request.personality,
     )
 
     async def stream():
@@ -108,7 +131,15 @@ async def stream_chat(request: ChatRequest, _: AuthDep, __: RateDep):
             yield item
         interaction = repository.create_interaction(request.user_id, request.message, response_text, metadata["model_version"], metadata)
         repository.store_embedding(interaction.id, request.user_id, embedding_preprocessor._hash_embedding(request.message), request.message)
-        yield json.dumps({"type": "done", "interaction_id": interaction.id, "response": response_text, "profile": profile.model_dump(), "metadata": metadata}) + "\n"
+        logger.info(f"[StreamChat] user={request.user_id} personality={request.personality} backend={metadata['generation_backend']}")
+        yield json.dumps({
+            "type": "done",
+            "interaction_id": interaction.id,
+            "response": response_text,
+            "system_label": "Adapting to your preferences",
+            "profile": profile.model_dump(),
+            "metadata": metadata,
+        }) + "\n"
 
     return StreamingResponse(stream(), media_type="application/x-ndjson")
 

@@ -1,16 +1,16 @@
 from .base_personality import BasePersonality
-from Core_Brain.nlp_engine import NLPEngine
+from echo_backend.Core_Brain.nlp_engine import NLPEngine
 
 
 class EchoPersonality(BasePersonality):
     def __init__(self):
         super().__init__(name="Echo", style="caring, empathetic", goals="help user emotionally and give supportive replies")
-        self.nlp = NLPEngine() 
+        self.nlp = NLPEngine()
 
     def respond(self, user_input, memory, analysis=None, adaptive_context=None):
         if not analysis:
             analysis = self.nlp.get_analysis(user_input)
-            
+
         intent = analysis.get("intent", "unknown")
         emotion = analysis.get("emotion", "neutral")
         sentiment = analysis.get("sentiment", "neutral")

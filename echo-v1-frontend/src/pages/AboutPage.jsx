@@ -52,7 +52,7 @@ const AboutPage = () => {
             <AlertTriangle className="w-8 h-8 text-solace-blue" />
           </div>
           <div className="space-y-4">
-            <h2 className="text-2xl font-bold text-white">Important Notice</h2>
+            <h2 className="text-2xl font-bold text-text-primary">Important Notice</h2>
             <div className="space-y-4 text-text-secondary leading-relaxed">
               <p>
                 While ECHO is designed to provide emotional support and guidance, it is **not a replacement for professional therapy, counseling, or medical intervention.**
@@ -103,7 +103,7 @@ const ValueCard = ({ icon: Icon, title, desc }) => (
     <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center">
       <Icon className="w-6 h-6 text-solace-purple" />
     </div>
-    <h3 className="text-xl font-bold text-white">{title}</h3>
+    <h3 className="text-xl font-bold text-text-primary">{title}</h3>
     <p className="text-sm text-text-secondary leading-relaxed">{desc}</p>
   </div>
 );

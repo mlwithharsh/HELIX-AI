@@ -18,10 +18,10 @@ const LandingPage = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
-            className="inline-flex items-center space-x-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-solace-purple-glow text-xs font-bold uppercase tracking-widest"
+            className="inline-flex items-center space-x-2 px-4 py-2 rounded-full bg-white/60 border border-black/5 text-solace-purple text-xs font-bold uppercase tracking-widest"
           >
             <Sparkles className="w-3.5 h-3.5" />
-            <span>AI-Powered Emotional Support</span>
+            <span>Personality-Aware Conversation</span>
           </motion.div>
 
           <motion.h1
@@ -40,7 +40,7 @@ const LandingPage = () => {
             transition={{ duration: 0.8, delay: 0.4 }}
             className="text-lg md:text-xl text-text-secondary max-w-2xl mx-auto leading-relaxed"
           >
-            In a fast-paced digital world, finding a safe space to express your emotions shouldn't be a luxury. ECHO offers empathetic AI support that truly listens.
+            A conversational system that learns your preferred tone, pace, and level of support over time while staying stable and clear.
           </motion.p>
 
           <motion.div
@@ -61,7 +61,7 @@ const LandingPage = () => {
       </section>
 
       {/* Why Wellness Matters Section */}
-      <section className="py-24 px-6 bg-background-soft/50">
+      <section className="py-24 px-6 bg-[rgba(235,227,214,0.38)]">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
           <div className="space-y-8">
             <h2 className="text-3xl md:text-4xl font-bold leading-tight">
@@ -69,7 +69,7 @@ const LandingPage = () => {
               <span className="text-solace-purple">Wellness Matters</span>
             </h2>
             <p className="text-text-secondary leading-relaxed">
-              loneliness, burnout, and silent struggles often go unnoticed in our busy lives. Many suffer quietly, fearing judgment or misunderstanding. 
+              Thoughtful assistance works better when it adapts to the person, not just the prompt. ECHO uses memory, retrieval, and feedback loops to stay useful without becoming erratic.
             </p>
             <div className="space-y-6">
               <FeatureItem 
@@ -105,10 +105,10 @@ const LandingPage = () => {
           viewport={{ once: true }}
           className="max-w-4xl mx-auto space-y-6"
         >
-          <blockquote className="text-3xl md:text-5xl font-bold italic text-white/90">
+          <blockquote className="text-3xl md:text-5xl font-bold italic text-text-primary">
             "ECHO — Where your emotions find understanding."
           </blockquote>
-          <p className="text-solace-blue-glow font-medium uppercase tracking-[0.3em] text-sm">
+          <p className="text-solace-purple font-medium uppercase tracking-[0.3em] text-sm">
             Not just AI. A space that listens.
           </p>
         </motion.div>
@@ -148,11 +148,11 @@ const LandingPage = () => {
 
 const FeatureItem = ({ icon: Icon, title, desc }) => (
   <div className="flex items-start space-x-4">
-    <div className="w-12 h-12 rounded-xl bg-solace-purple/10 flex items-center justify-center shrink-0">
+    <div className="w-12 h-12 rounded-xl bg-white/60 border border-black/5 flex items-center justify-center shrink-0">
       <Icon className="w-6 h-6 text-solace-purple" />
     </div>
     <div>
-      <h4 className="font-bold text-white mb-1">{title}</h4>
+      <h4 className="font-bold text-text-primary mb-1">{title}</h4>
       <p className="text-sm text-text-secondary leading-relaxed">{desc}</p>
     </div>
   </div>
@@ -160,7 +160,7 @@ const FeatureItem = ({ icon: Icon, title, desc }) => (
 
 const StatCard = ({ label, value }) => (
   <div className="glass-card p-6 text-center space-y-2">
-    <div className="text-3xl font-bold text-white">{value}</div>
+    <div className="text-3xl font-bold text-text-primary">{value}</div>
     <div className="text-[10px] font-bold text-text-muted uppercase tracking-widest">{label}</div>
   </div>
 );
@@ -168,13 +168,13 @@ const StatCard = ({ label, value }) => (
 const StepCard = ({ number, icon: Icon, title, desc }) => (
   <div className="glass-card p-8 space-y-6 group hover:border-solace-purple/20 transition-colors duration-500">
     <div className="flex justify-between items-center">
-      <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
+      <div className="w-14 h-14 rounded-2xl bg-white/60 border border-black/5 flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
         <Icon className="w-7 h-7 text-solace-blue" />
       </div>
-      <span className="text-4xl font-black text-white/5">{number}</span>
+      <span className="text-4xl font-black text-black/5">{number}</span>
     </div>
     <div className="space-y-3">
-      <h3 className="text-xl font-bold text-white">{title}</h3>
+      <h3 className="text-xl font-bold text-text-primary">{title}</h3>
       <p className="text-text-secondary leading-relaxed">{desc}</p>
     </div>
   </div>

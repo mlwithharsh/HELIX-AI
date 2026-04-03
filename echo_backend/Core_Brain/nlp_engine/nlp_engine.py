@@ -1,28 +1,38 @@
-# NLP, intent detection, emotion sense
-import sys
-import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+# NLP Engine — intent detection, emotion analysis, Groq API integration
 import json
+import logging
+import os
 import time
 from functools import lru_cache
+from pathlib import Path
+
 import requests
-import logging
 
 try:
     from dotenv import load_dotenv
-    load_dotenv()
+    # Load from project root .env
+    _root = Path(__file__).resolve().parents[3]
+    load_dotenv(_root / ".env")
 except ImportError:
     pass
 
 
 class NLPEngine:
-    def __init__(self, model_name="llama-3.1-8b-instant"):
+    def __init__(self, model_name="llama-3.1-8b-instant", api_key=None):
         self.model_name = model_name
+        self.api_key = api_key or os.getenv("GROQ_API_KEY")
         self.logger = logging.getLogger(__name__)
         logging.basicConfig(level=logging.INFO)
         self.api_url = "https://api.groq.com/openai/v1/chat/completions"
 
+        if not self.api_key:
+            self.logger.warning("GROQ_API_KEY not found — Groq calls will fail and fall back to local model.")
+
     def call_groq_model(self, messages, max_tokens=200, temperature=0.7):
+        if not self.api_key:
+            self.logger.error("No GROQ_API_KEY configured.")
+            return "[Groq Error]: No API key configured"
+
         payload = {
             "model": self.model_name,
             "messages": messages,
@@ -34,16 +44,16 @@ class NLPEngine:
 
         for attempt in range(3):
             try:
-                api_key = os.getenv("GROQ_API_KEY")
-                current_headers = {
-                    "Authorization": f"Bearer {api_key}",
+                headers = {
+                    "Authorization": f"Bearer {self.api_key}",
                     "Content-Type": "application/json",
                 }
 
-                response = requests.post(self.api_url, headers=current_headers, json=payload, timeout=30)
+                self.logger.info(f"[Groq Attempt {attempt + 1}] model={self.model_name}, messages={len(messages)}")
+                response = requests.post(self.api_url, headers=headers, json=payload, timeout=30)
 
                 if not response.content:
-                    self.logger.warning(f"[Attempt {attempt + 1}] Empty response from model.")
+                    self.logger.warning(f"[Attempt {attempt + 1}] Empty response from Groq.")
                     if attempt < 2:
                         time.sleep(3)
                     continue
@@ -63,7 +73,9 @@ class NLPEngine:
                 try:
                     result = response.json()
                     if "choices" in result and len(result["choices"]) > 0:
-                        return result["choices"][0]["message"]["content"].strip()
+                        content = result["choices"][0]["message"]["content"].strip()
+                        self.logger.info(f"[Groq] Response received ({len(content)} chars)")
+                        return content
                     self.logger.warning(f"[Attempt {attempt + 1}] Invalid response structure: {result}")
                     if attempt < 2:
                         time.sleep(3)
@@ -122,12 +134,12 @@ class NLPEngine:
         policy = ((adaptive_context or {}).get("policy_state") or {}).get("policy", "supportive")
 
         if policy == "celebratory":
-            return f"{personality_name} is with you on that. It sounds genuinely exciting, and I’d love to help you build on this momentum."
+            return f"That sounds genuinely exciting! I'd love to help you build on this momentum."
         if alignment == "grounding" or emotion in {"sad", "angry", "fear"}:
-            return f"{personality_name} hears the weight in what you said. Let’s slow it down and take the next step together, one clear piece at a time."
+            return f"I hear the weight in what you said. Let's slow it down and take the next step together."
         if intent in {"question", "request"}:
-            return f"{personality_name} understands what you need. I can help with that in a calm, focused way if you want to keep going."
-        return f"{personality_name} is here with you. I’m tracking the context and ready to respond in a way that fits what you need."
+            return f"I understand what you need. I can help with that — let's work through it together."
+        return f"I'm here with you. Tell me more about what's on your mind."
 
     @lru_cache(maxsize=128)
     def detect_intent_cached(self, user_input: str) -> str:
@@ -153,7 +165,7 @@ class NLPEngine:
         messages = [
             {
                 "role": "system",
-                "content": "You are an emotion and sentiment detector. Reply ONLY with JSON like: {\"emotion\": \"sad\", \"sentiment\": \"negative\"}",
+                "content": 'You are an emotion and sentiment detector. Reply ONLY with JSON like: {"emotion": "sad", "sentiment": "negative"}',
             },
             {"role": "user", "content": user_input},
         ]

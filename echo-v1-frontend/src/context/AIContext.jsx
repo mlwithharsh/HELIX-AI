@@ -7,11 +7,12 @@ const AIContext = createContext();
 export const AIProvider = ({ children }) => {
   const [status, setStatus] = useState('offline');
   const [userId] = useState('demo-user');
+  const [personality, setPersonality] = useState('echo');
   const [history, setHistory] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [lastResponse, setLastResponse] = useState(null);
   const [profile, setProfile] = useState(null);
-  const [modelVersions, setModelVersions] = useState([]);
+  const [systemLabel, setSystemLabel] = useState('');
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -49,23 +50,13 @@ export const AIProvider = ({ children }) => {
     }
   }, [userId]);
 
-  const fetchModelVersions = useCallback(async () => {
-    try {
-      const res = await modelAPI.listVersions();
-      setModelVersions(res.data.items || []);
-    } catch (err) {
-      console.warn('Failed to fetch model versions', err);
-    }
-  }, []);
-
   useEffect(() => {
     fetchStatus();
     fetchProfile();
     fetchHistory();
-    fetchModelVersions();
     const interval = setInterval(fetchStatus, 30000);
     return () => clearInterval(interval);
-  }, [fetchStatus, fetchHistory, fetchModelVersions, fetchProfile]);
+  }, [fetchStatus, fetchHistory, fetchProfile]);
 
   const processText = async (text) => {
     setIsProcessing(true);
@@ -79,15 +70,24 @@ export const AIProvider = ({ children }) => {
     setHistory((prev) => [...prev, draft].slice(-50));
     try {
       let finalPayload = null;
+      const outboundHistory = history.flatMap((item) => {
+        const rows = [];
+        if (item.input_text || item.text) {
+          rows.push({ role: 'user', content: item.input_text || item.text || '' });
+        }
+        if (item.response) {
+          rows.push({ role: 'assistant', content: item.response });
+        }
+        return rows;
+      });
+
       await textAPI.stream(
         {
           user_id: userId,
           message: text,
-          history: history.map((item) => ({
-            role: 'user',
-            content: item.input_text || item.text || '',
-          })),
-          personality_override: profile,
+          history: outboundHistory,
+          personality,
+          // No personality_override — server manages profile automatically
         },
         (event) => {
           if (event.type === 'delta') {
@@ -106,9 +106,9 @@ export const AIProvider = ({ children }) => {
               response: event.response,
               metadata: event.metadata || {},
               model_version: event.metadata?.model_version,
-              profile: event.profile,
             };
-            setProfile(event.profile);
+            if (event.profile) setProfile(event.profile);
+            if (event.system_label) setSystemLabel(event.system_label);
             setHistory((prev) =>
               prev.map((item) =>
                 item.interaction_id === draft.interaction_id ? finalPayload : item
@@ -122,20 +122,10 @@ export const AIProvider = ({ children }) => {
     } catch (err) {
       console.error('API connection failed', err);
       setHistory((prev) => prev.filter((item) => item.interaction_id !== draft.interaction_id));
-      toast.error('Connection failed. Is the FastAPI backend running?');
+      toast.error('Connection failed. Is the backend running on port 8000?');
       throw err;
     } finally {
       setIsProcessing(false);
-    }
-  };
-
-  const updateProfile = async (key, value) => {
-    try {
-      const nextProfile = { ...(profile || { user_id: userId }), [key]: value };
-      const res = await userAPI.updateProfile(userId, nextProfile);
-      setProfile(res.data);
-    } catch (err) {
-      toast.error('Failed to update preferences');
     }
   };
 
@@ -148,7 +138,7 @@ export const AIProvider = ({ children }) => {
         tags,
       });
       setProfile(res.data.updated_profile);
-      toast.success(`Feedback logged (${res.data.reward.toFixed(2)})`);
+      toast.success('Feedback received — adapting to your preferences');
     } catch (err) {
       toast.error('Failed to submit feedback');
     }
@@ -158,13 +148,14 @@ export const AIProvider = ({ children }) => {
     <AIContext.Provider value={{
       status,
       userId,
+      personality,
+      setPersonality,
       history,
       isProcessing,
       lastResponse,
       profile,
-      modelVersions,
+      systemLabel,
       processText,
-      updateProfile,
       submitFeedback,
       refreshStatus: fetchStatus
     }}>

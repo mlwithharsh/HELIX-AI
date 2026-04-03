@@ -3,21 +3,18 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { useAI } from '../context/AIContext';
 import FeedbackBar from '../components/FeedbackBar';
-import PreferenceSliders from '../components/PreferenceSliders';
+import PersonalitySelector from '../components/PersonalitySelector';
 import { 
   Send, 
   ArrowLeft, 
-  Sparkles, 
-  Loader2, 
   Heart,
-  Smile,
-  Target,
-  Activity
+  Sparkles, 
+  Loader2
 } from 'lucide-react';
 
 const ChatPage = () => {
   const [inputText, setInputText] = useState('');
-  const { isProcessing, processText, history, profile, updateProfile, submitFeedback, modelVersions } = useAI();
+  const { isProcessing, processText, history, profile, submitFeedback, systemLabel, personality } = useAI();
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
 
@@ -49,185 +46,173 @@ const ChatPage = () => {
     }
   };
 
+  const activePersonaName = personality === 'suzi' ? 'Suzi' : 'Echo';
+
   return (
-    <div className="h-screen flex flex-col bg-background overflow-hidden pt-20">
+    <div id="chat-page" className="h-screen flex flex-col bg-background overflow-hidden">
       {/* Chat Header */}
-      <header className="px-6 py-4 border-b border-white/5 flex items-center justify-between bg-background/50 backdrop-blur-md relative z-20">
+      <header className="px-6 py-4 border-b border-black/5 flex items-center justify-between bg-[rgba(244,239,230,0.92)] backdrop-blur-md relative z-20">
         <div className="flex items-center space-x-4">
-          <Link to="/" className="p-2 rounded-full hover:bg-white/5 text-text-secondary hover:text-white transition-colors">
+          <Link to="/" id="back-button" className="p-2 rounded-full hover:bg-black/5 text-text-secondary hover:text-text-primary transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <div>
-            <h2 className="text-sm font-bold text-white uppercase tracking-widest">Textual Synapse</h2>
+            <h2 className="text-sm font-bold text-text-primary tracking-wide">{activePersonaName}</h2>
             <div className="flex items-center space-x-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-              <span className="text-[10px] text-text-muted font-bold uppercase tracking-tighter">Emotion-aware AI Active</span>
+              <div className="w-1.5 h-1.5 rounded-full bg-[#7f9476] animate-pulse" />
+              <span className="text-[10px] text-text-muted font-medium">Online · Ready to listen</span>
             </div>
           </div>
         </div>
         
         <div className="flex items-center space-x-3">
-          <div className="hidden sm:flex items-center space-x-2 px-4 py-1.5 rounded-full bg-solace-purple/10 border border-solace-purple/20">
-            <Sparkles className="w-3 h-3 text-solace-purple-glow" />
-            <span className="text-[10px] font-bold text-solace-purple-glow uppercase tracking-widest">Adaptive Serving</span>
-          </div>
+          <PersonalitySelector />
         </div>
       </header>
 
       <div className="flex-1 overflow-hidden">
-        <div className="h-full grid lg:grid-cols-[320px,1fr]">
-          <aside className="border-r border-white/5 p-6 overflow-y-auto">
-            <PreferenceSliders profile={profile} onChange={updateProfile} />
-            <div className="mt-6 rounded-[1.75rem] bg-white/5 border border-white/10 p-5">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-text-muted">Model Versions</p>
-              <div className="mt-3 space-y-2">
-                {modelVersions.slice(0, 3).map((item, index) => (
-                  <div key={`${item.version}-${index}`} className="rounded-2xl bg-background-soft border border-white/5 px-4 py-3">
-                    <p className="text-xs font-bold text-white uppercase tracking-widest">{item.version}</p>
-                    <p className="text-[10px] uppercase tracking-[0.2em] text-text-muted mt-1">Bucket {item.ab_bucket || 'A'}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </aside>
-
+        <div className="h-full">
+          {/* Chat Messages */}
           <div className="overflow-y-auto px-6 py-8 space-y-8 scrollbar-hide">
-            <div className="max-w-4xl mx-auto space-y-8">
-          {history.length === 0 && !isProcessing && (
-            <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-6">
-              <div className="w-20 h-20 rounded-3xl bg-white/5 flex items-center justify-center animate-pulse">
-                <Heart className="w-10 h-10 text-solace-purple/40" />
-              </div>
-              <div className="space-y-2">
-                <h3 className="text-xl font-bold text-white">How are you feeling today?</h3>
-                <p className="text-text-secondary text-sm max-w-xs mx-auto">
-                  I'm here to listen. Share your thoughts, feelings, or just say hello.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {history.map((msg, idx) => (
-            <div key={idx} className="space-y-4">
-              {/* User Message */}
-              <motion.div 
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="flex justify-end"
-              >
-                <div className="max-w-[80%] px-6 py-4 rounded-3xl rounded-tr-none bg-white/5 border border-white/10 text-white shadow-sm">
-                  <p className="text-sm leading-relaxed">{msg.input_text || msg.text}</p>
-                </div>
-              </motion.div>
-
-              {/* AI Message */}
-              <motion.div 
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="flex justify-start space-y-4 flex-col"
-              >
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-solace-purple to-solace-blue flex items-center justify-center">
-                    <Sparkles className="w-4 h-4 text-white" />
+            <div className="max-w-3xl mx-auto space-y-6">
+              {/* Empty State */}
+              {history.length === 0 && !isProcessing && (
+                <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-6">
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#e8e1d5] to-[#d5dfd0] flex items-center justify-center">
+                    <Heart className="w-8 h-8 text-[#7f9476]/60" />
                   </div>
-                  <span className="text-[10px] font-bold text-text-muted uppercase tracking-widest">ECHO AI</span>
-                </div>
-                
-                <div className="max-w-[80%] px-6 py-4 rounded-3xl rounded-tl-none bg-background-soft border border-solace-purple/20 text-text-primary shadow-glow-purple/10">
-                  <p className="text-sm leading-relaxed">{msg.response}</p>
-                </div>
-
-                {/* Metrics for each message */}
-                <div className="flex space-x-3 overflow-x-auto pb-2 scrollbar-hide">
-                  <MetricChip icon={Smile} label="Support" value={String(Math.round((profile?.support_preference || 0.5) * 100))} color="#8b5cf6" />
-                  <MetricChip icon={Target} label="Task" value={String(Math.round((profile?.task_focus || 0.5) * 100))} color="#3b82f6" />
-                  <MetricChip icon={Activity} label="Brevity" value={String(Math.round((profile?.brevity_preference || 0.5) * 100))} color="#06b6d4" />
-                  <MetricChip icon={Sparkles} label="Model" value={msg.model_version || msg.metadata?.model_version || 'BASELINE'} color="#f59e0b" />
-                </div>
-
-                {msg.interaction_id && !msg.pending && (
-                  <FeedbackBar interactionId={msg.interaction_id} onSubmit={submitFeedback} />
-                )}
-
-                {msg.metadata?.ab_bucket && (
-                  <div className="max-w-[80%] px-4 py-3 rounded-2xl bg-white/5 border border-white/5">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-text-muted mb-1">Learning Status</p>
-                    <p className="text-xs text-text-secondary">
-                      Adapting to your preferences. Current bucket: {msg.metadata.ab_bucket}. Cache hit: {String(msg.metadata.cache_hit)}.
+                  <div className="space-y-2">
+                    <h3 className="text-xl font-bold text-text-primary">How are you feeling today?</h3>
+                    <p className="text-text-secondary text-sm max-w-xs mx-auto leading-relaxed">
+                      I'm here to listen. Share your thoughts, feelings, or just say hello.
                     </p>
                   </div>
-                )}
-              </motion.div>
-            </div>
-          ))}
-
-          {isProcessing && (
-            <motion.div 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex justify-start space-x-3"
-            >
-              <div className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center">
-                <Loader2 className="w-4 h-4 text-solace-purple animate-spin" />
-              </div>
-              <div className="px-6 py-4 rounded-3xl rounded-tl-none bg-white/5 border border-white/5">
-                <div className="flex space-x-1">
-                  <div className="w-1.5 h-1.5 bg-solace-purple rounded-full animate-bounce" />
-                  <div className="w-1.5 h-1.5 bg-solace-purple rounded-full animate-bounce [animation-delay:0.2s]" />
-                  <div className="w-1.5 h-1.5 bg-solace-purple rounded-full animate-bounce [animation-delay:0.4s]" />
+                  <div className="flex flex-wrap justify-center gap-2 max-w-sm">
+                    {['Hey there 👋', 'I need to talk', 'Help me think'].map((suggestion) => (
+                      <button
+                        key={suggestion}
+                        onClick={() => { setInputText(suggestion); }}
+                        className="px-4 py-2 rounded-full bg-white/80 border border-black/5 text-sm text-text-secondary hover:bg-white hover:text-text-primary hover:shadow-sm transition-all duration-300"
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            </motion.div>
-          )}
-          <div ref={messagesEndRef} />
+              )}
+
+              {/* Messages */}
+              {history.map((msg, idx) => (
+                <div key={msg.interaction_id || idx} className="space-y-4">
+                  {/* User Message */}
+                  {(msg.input_text || msg.text) && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="flex justify-end"
+                    >
+                      <div className="max-w-[75%] px-5 py-3.5 rounded-2xl rounded-br-md bg-[#6d7b68] text-white shadow-sm">
+                        <p className="text-[14px] leading-relaxed">{msg.input_text || msg.text}</p>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* AI Response */}
+                  {msg.response && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3, delay: 0.1 }}
+                      className="flex justify-start"
+                    >
+                      <div className="max-w-[80%] space-y-3">
+                        {/* Avatar + Name */}
+                        <div className="flex items-center space-x-2.5">
+                          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#c8b89b] to-[#7f9476] flex items-center justify-center shadow-sm">
+                            <Sparkles className="w-3.5 h-3.5 text-white" />
+                          </div>
+                          <span className="text-[11px] font-semibold text-text-muted">{activePersonaName}</span>
+                        </div>
+                        
+                        {/* Response Bubble */}
+                        <div className="ml-9 px-5 py-3.5 rounded-2xl rounded-tl-md bg-white border border-black/5 text-text-primary shadow-[0_8px_30px_rgba(61,75,63,0.06)]">
+                          <p className="text-[14px] leading-[1.7]">{msg.response}</p>
+                        </div>
+
+                        {/* Feedback */}
+                        {msg.interaction_id && !msg.pending && (
+                          <div className="ml-9">
+                            <FeedbackBar interactionId={msg.interaction_id} onSubmit={submitFeedback} />
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
+              ))}
+
+              {/* Typing Indicator */}
+              {isProcessing && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex justify-start"
+                >
+                  <div className="flex items-center space-x-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#c8b89b] to-[#7f9476] flex items-center justify-center shadow-sm">
+                      <Loader2 className="w-3.5 h-3.5 text-white animate-spin" />
+                    </div>
+                    <div className="px-5 py-3.5 rounded-2xl rounded-tl-md bg-white border border-black/5 shadow-sm">
+                      <div className="flex space-x-1.5">
+                        <div className="w-2 h-2 bg-[#7f9476]/40 rounded-full animate-bounce" />
+                        <div className="w-2 h-2 bg-[#7f9476]/40 rounded-full animate-bounce [animation-delay:0.15s]" />
+                        <div className="w-2 h-2 bg-[#7f9476]/40 rounded-full animate-bounce [animation-delay:0.3s]" />
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+              <div ref={messagesEndRef} />
             </div>
           </div>
         </div>
       </div>
 
       {/* Input Area */}
-      <div className="p-6 bg-background relative z-20">
-        <div className="max-w-4xl mx-auto relative">
+      <div className="p-4 md:p-6 bg-[rgba(244,239,230,0.92)] backdrop-blur-md relative z-20 border-t border-black/5">
+        <div className="max-w-3xl mx-auto relative">
           <form onSubmit={handleSubmit} className="relative group">
             <textarea
               ref={textareaRef}
+              id="chat-input"
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Share your thoughts..."
-              className="w-full bg-background-soft border border-white/10 rounded-[2rem] px-8 py-6 pr-20 text-white placeholder-text-muted resize-none outline-none focus:border-solace-purple/30 focus:shadow-glow-purple transition-all duration-500 min-h-[80px] max-h-[200px]"
+              className="w-full bg-white border border-black/8 rounded-2xl px-5 py-4 pr-16 text-text-primary placeholder-text-muted resize-none outline-none focus:border-[#7f9476]/30 focus:shadow-[0_0_0_3px_rgba(127,148,118,0.08)] transition-all duration-300 min-h-[56px] max-h-[160px] text-[14px] leading-relaxed shadow-sm"
               rows="1"
             />
             <button
               type="submit"
+              id="send-button"
               disabled={!inputText.trim() || isProcessing}
-              className={`absolute right-4 bottom-4 p-4 rounded-2xl transition-all duration-300 ${
+              className={`absolute right-3 bottom-3 p-3 rounded-xl transition-all duration-300 ${
                 !inputText.trim() || isProcessing
-                  ? 'bg-white/5 text-text-muted cursor-not-allowed'
-                  : 'bg-gradient-to-r from-solace-purple to-solace-blue text-white shadow-glow-purple scale-100 hover:scale-105 active:scale-95'
+                  ? 'bg-[#ece6db] text-text-muted cursor-not-allowed'
+                  : 'bg-gradient-to-r from-[#bda98a] to-[#7f9476] text-white hover:scale-105 active:scale-95 shadow-md hover:shadow-lg'
               }`}
             >
-              {isProcessing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+              {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             </button>
           </form>
-          <p className="mt-3 text-[10px] text-center text-text-muted uppercase tracking-widest">
-            Your conversations are confidential and encrypted.
+          <p className="mt-2 text-[10px] text-center text-text-muted">
+            Your conversations are private and confidential.
           </p>
         </div>
       </div>
     </div>
   );
 };
-
-const MetricChip = ({ icon: Icon, label, value, color }) => (
-  <div 
-    className="flex items-center space-x-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/5 shrink-0"
-    style={{ borderColor: `${color}20` }}
-  >
-    <Icon className="w-3 h-3" style={{ color }} />
-    <span className="text-[9px] font-bold text-text-muted uppercase tracking-tighter">{label}:</span>
-    <span className="text-[9px] font-black uppercase tracking-widest" style={{ color }}>{value}</span>
-  </div>
-);
 
 export default ChatPage;

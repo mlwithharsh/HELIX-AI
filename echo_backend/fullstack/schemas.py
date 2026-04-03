@@ -19,7 +19,7 @@ class ChatRequest(BaseModel):
     user_id: str
     message: str
     history: list[dict[str, str]] = Field(default_factory=list)
-    personality_override: PersonalityProfile | None = None
+    personality: str = "echo"
 
 
 class FeedbackRequest(BaseModel):

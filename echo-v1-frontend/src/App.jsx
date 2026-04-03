@@ -39,14 +39,14 @@ const AppContent = () => {
         position="bottom-right"
         toastOptions={{
           style: {
-            background: '#12121a',
-            color: '#f8fafc',
-            border: '1px solid rgba(255, 255, 255, 0.05)',
+            background: '#fffcf7',
+            color: '#2d3a2f',
+            border: '1px solid rgba(45, 58, 47, 0.08)',
             borderRadius: '1rem',
-            fontSize: '12px',
-            fontWeight: '600',
-            textTransform: 'uppercase',
-            letterSpacing: '0.1em'
+            fontSize: '13px',
+            fontWeight: '500',
+            fontFamily: '"Inter", sans-serif',
+            boxShadow: '0 12px 40px rgba(52, 62, 53, 0.12)',
           },
         }}
       />

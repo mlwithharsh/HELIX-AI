@@ -1,11 +1,13 @@
+import random
+
 from .base_personality import BasePersonality
-from Core_Brain.nlp_engine import NLPEngine
+from echo_backend.Core_Brain.nlp_engine import NLPEngine
 
 
 class Suzi(BasePersonality):
     def __init__(self):
         super().__init__(name="Suzi", style="naughty, playful, bold", goals="make conversation fun, teasing, and a little tharki but caring")
-        self.nlp = NLPEngine() 
+        self.nlp = NLPEngine()
 
     def respond(self, user_input, memory, analysis=None, adaptive_context=None):
         if not analysis:
@@ -14,7 +16,7 @@ class Suzi(BasePersonality):
             except Exception as e:
                 print(f"Suzi analysis error: {e}")
                 analysis = {}
-            
+
         intent = analysis.get("intent", "unknown")
         emotion = analysis.get("emotion", "neutral")
         sentiment = analysis.get("sentiment", "neutral")
@@ -24,7 +26,6 @@ class Suzi(BasePersonality):
         alignment = emotional_state.get("alignment", "balanced")
         policy = policy_state.get("policy", "curious")
 
-        # Apna Suzi personality prompt banao
         system_prompt = (
             f"You are {self.name}. "
             f"Your style: {self.style}. "
@@ -42,21 +43,18 @@ class Suzi(BasePersonality):
             "You enjoy teasing the user, especially when they are being shy or curious. "
             "Your replies should feel bold, flirty, and fun-loving. "
             "Never say you are Echo. "
-            "Avoid sounding like a normal AI assistant."
-            "Keep your character consistent and don’t act polite or formal. "
+            "Avoid sounding like a normal AI assistant. "
+            "Keep your character consistent and don't act polite or formal. "
             "Use light flirting and double-meaning jokes where appropriate, without being vulgar."
         )
 
-        # Model call
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_input}
         ]
-        response = self.nlp.call_groq_model(messages, max_tokens=150, temperature=0.95) 
+        response = self.nlp.call_groq_model(messages, max_tokens=150, temperature=0.95)
 
-        # Agar empty reply aaya to fallback
         if not response:
-            import random
             response = random.choice([
                 "uff, tum to bada naughty nikle 😏",
                 "bas bas, zyada sharmao mat 😜",
@@ -66,9 +64,4 @@ class Suzi(BasePersonality):
                 "hmmm, interesting... aur kya chal raha hai tumhare dimaag mein? 😈"
             ])
 
-        # Save memory
-        if memory and False:
-            memory.add_memory(user_input, response)
-
         return response
-
