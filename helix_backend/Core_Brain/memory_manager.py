@@ -217,6 +217,37 @@ class MemoryManager:
     def get_execution_logs(self, limit=10):
         return self.execution_logs[-limit:]
 
+    def submit_feedback(self, session_id, vote, tags=[]):
+        """Update memory with feedback (1 for upvote, -1 for downvote) and record preferences."""
+        try:
+            reward = 1.0 if vote == 'up' else -1.0 if vote == 'down' else 0.0
+            
+            # 1. Update reward in short-term history
+            for msg in self.history:
+                if msg.get("session") == session_id:
+                    msg["reward"] = reward
+                    break
+            
+            # 2. Update long-term memories
+            for msg in self.long_term_memories:
+                if msg.get("session") == session_id:
+                    msg["reward"] = reward
+                    msg["importance"] = self.score_importance(msg["user"], msg["helix"], msg.get("analysis", {}), reward)
+                    break
+            
+            # 3. Add tags to user preferences
+            if tags:
+                for tag in tags:
+                    clean_tag = str(tag).strip()
+                    if clean_tag not in self.user_profile["preferences"]:
+                        self.user_profile["preferences"].append(f"Preference: {clean_tag}")
+                
+            self.user_profile["preferences"] = self.user_profile["preferences"][-20:]
+            return True
+        except Exception as e:
+            print(f"Error submitting feedback: {e}")
+            return False
+
     def clear_memory(self, session_id=None):
         if session_id:
             self.history = [msg for msg in self.history if msg["session"] != session_id]

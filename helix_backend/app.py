@@ -201,6 +201,23 @@ def api_user_clear(user_id):
     if request.method == 'OPTIONS': return jsonify({"status": "ok"}), 200
     return clear_memory()
 
+@app.route('/api/feedback', methods=['POST', 'OPTIONS'])
+def api_feedback():
+    if request.method == 'OPTIONS': return jsonify({"status": "ok"}), 200
+    data = request.json
+    success = memory_manager.submit_feedback(
+        data.get("interaction_id"),
+        data.get("vote"),
+        data.get("tags", [])
+    )
+    if success:
+        return jsonify({
+            "status": "success",
+            "updated_profile": memory_manager.get_memory_snapshot()
+        })
+    else:
+        return jsonify({"error": "Failed to record feedback"}), 500
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)
