@@ -5,25 +5,25 @@
 Install:
 
 ```powershell
-Set-Location -LiteralPath 'D:\ECHO V1'
+Set-Location -LiteralPath 'D:\HELIX V1'
 .venv\Scripts\activate
-python -m pip install -r echo_backend\requirements_fullstack.txt
+python -m pip install -r helix_backend\requirements_fullstack.txt
 ```
 
 Run FastAPI:
 
 ```powershell
-uvicorn echo_backend.fullstack.main:app --reload --port 8000
+uvicorn helix_backend.fullstack.main:app --reload --port 8000
 ```
 
 Environment variables:
 
 ```powershell
-$env:ECHO_API_TOKEN='dev-token'
+$env:HELIX_API_TOKEN='dev-token'
 $env:SUPABASE_URL='https://<project>.supabase.co'
 $env:SUPABASE_SERVICE_ROLE_KEY='<service-role-key>'
-$env:ECHO_MODEL_NAME='distilgpt2'
-$env:ECHO_MODEL_VERSION='baseline-distilgpt2'
+$env:HELIX_MODEL_NAME='distilgpt2'
+$env:HELIX_MODEL_VERSION='baseline-distilgpt2'
 ```
 
 ## Supabase
@@ -45,7 +45,7 @@ Required tables:
 Run:
 
 ```powershell
-Set-Location -LiteralPath 'D:\ECHO V1\echo-v1-frontend'
+Set-Location -LiteralPath 'D:\HELIX V1\helix-frontend'
 $env:VITE_BACKEND_URL='http://localhost:8000'
 $env:VITE_API_TOKEN='dev-token'
 npm run dev
@@ -56,8 +56,8 @@ npm run dev
 Run batch retraining:
 
 ```powershell
-Set-Location -LiteralPath 'D:\ECHO V1'
-.venv\Scripts\python -m echo_backend.fullstack.offline_rlhf --batch-limit 100 --version-label candidate
+Set-Location -LiteralPath 'D:\HELIX V1'
+.venv\Scripts\python -m helix_backend.fullstack.offline_rlhf --batch-limit 100 --version-label candidate
 ```
 
 ## Primary endpoints

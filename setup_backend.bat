@@ -1,6 +1,6 @@
 @echo off
 setlocal
-echo Setting up ECHO V1 Backend Dependencies...
+echo Setting up HELIX V1 Backend Dependencies...
 
 REM Detect and activate local venv if it exists
 if exist ".venv\Scripts\activate.bat" (
@@ -8,7 +8,7 @@ if exist ".venv\Scripts\activate.bat" (
     call .venv\Scripts\activate.bat
 )
 
-cd echo_backend
+cd helix_backend
 python -m pip install -r requirements.txt
 echo [SUCCESS] Setup complete. You can now run start_backend.bat.
 pause
