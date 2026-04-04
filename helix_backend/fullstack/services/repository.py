@@ -165,10 +165,16 @@ class SupabaseRepository:
             "notes": feedback.notes,
             "vote": feedback.vote,
         }
-        if not self.client:
+        if not self.client or not self._is_valid_uuid(feedback.user_id):
             self.local_feedback.append(payload)
             return
-        self.client.table("feedback").insert(payload).execute()
+            
+        try:
+            self.client.table("feedback").insert(payload).execute()
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to persist feedback to Supabase: {e}")
+            self.local_feedback.append(payload)
 
     def store_embedding(self, interaction_id: str, user_id: str, vector: list[float], source_text: str) -> None:
         payload = {
