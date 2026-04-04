@@ -93,7 +93,6 @@ export const AIProvider = ({ children }) => {
     };
     setHistory((prev) => [...prev, draft].slice(-50));
     try {
-      let finalPayload = null;
       const outboundHistory = history.flatMap((item) => {
         const rows = [];
         if (item.input_text || item.text) {
@@ -105,46 +104,29 @@ export const AIProvider = ({ children }) => {
         return rows;
       });
 
-      await textAPI.stream(
-        {
-          user_id: userId,
-          message: text,
-          history: outboundHistory,
-          personality,
-        },
-        (event) => {
-          const eventType = event.type || (event.response ? 'done' : 'delta');
-          
-          if (eventType === 'delta') {
-            setHistory((prev) =>
-              prev.map((item) =>
-                item.interaction_id === draft.interaction_id
-                  ? { ...item, response: `${item.response}${event.content}`, pending: true }
-                  : item
-              )
-            );
-          }
-          if (eventType === 'done') {
-            finalPayload = {
-              interaction_id: event.interaction_id || draft.interaction_id, 
-              input_text: text,
-              response: event.response,
-              metadata: {
-                ...(event.metadata || {}),
-                backend_interaction_id: event.interaction_id
-              },
-              model_version: event.metadata?.model_version || '2.0.0',
-              pending: false,
-            };
-            if (event.profile) setProfile(event.profile);
-            
-            setHistory((prev) => 
-               prev.map((item) => item.interaction_id === draft.interaction_id ? finalPayload : item)
-            );
-            setLastResponse(finalPayload);
-          }
-        }
+      const res = await textAPI.process({
+        user_id: userId,
+        message: text,
+        history: outboundHistory,
+        personality,
+      });
+
+      const event = res.data;
+      const finalPayload = {
+        interaction_id: event.interaction_id || draft.interaction_id,
+        input_text: text,
+        response: event.response,
+        metadata: { ...(event.metadata || {}), backend_interaction_id: event.interaction_id },
+        model_version: event.metadata?.model_version || '2.0.0',
+        pending: false,
+      };
+      if (event.profile) setProfile(event.profile);
+      if (event.system_label) setSystemLabel(event.system_label);
+
+      setHistory((prev) =>
+        prev.map((item) => (item.interaction_id === draft.interaction_id ? finalPayload : item))
       );
+      setLastResponse(finalPayload);
       return finalPayload;
     } catch (err) {
       console.error('API connection failed', err);

@@ -4,6 +4,9 @@ import { Mail, Lock, ArrowRight, Sparkles } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
+const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+
+
 const LoginPage = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
@@ -17,7 +20,7 @@ const LoginPage = () => {
     setError('');
     
     try {
-      const res = await axios.post('https://reworked-echo.onrender.com/api/auth/login', {
+      const res = await axios.post(`${BACKEND}/api/auth/login`, {
         email,
         password
       });

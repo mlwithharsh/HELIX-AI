@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Any
-from uuid import uuid4
+from uuid import uuid4, UUID
 
 from supabase import Client, create_client
 
@@ -71,8 +71,15 @@ class SupabaseRepository:
     def _default_profile(self, user_id: str) -> PersonalityProfile:
         return PersonalityProfile(user_id=user_id)
 
+    def _is_valid_uuid(self, user_id: str) -> bool:
+        try:
+            UUID(str(user_id))
+            return True
+        except (ValueError, AttributeError):
+            return False
+
     def get_user_profile(self, user_id: str) -> PersonalityProfile:
-        if not self.client:
+        if not self.client or not self._is_valid_uuid(user_id):
             return self.local_users.get(user_id, self._default_profile(user_id))
         result = self.client.table("users").select("*").eq("id", user_id).limit(1).execute()
         if result.data:
@@ -96,7 +103,7 @@ class SupabaseRepository:
             "task_focus": profile.task_focus,
             "points": profile.points,
         }
-        if not self.client:
+        if not self.client or not self._is_valid_uuid(profile.user_id):
             self.local_users[profile.user_id] = profile
             return profile
         self.client.table("users").upsert(payload).execute()
@@ -123,7 +130,7 @@ class SupabaseRepository:
             "metadata": metadata,
             "model_version": model_version,
         }
-        if not self.client:
+        if not self.client or not self._is_valid_uuid(user_id):
             self.local_interactions[interaction_id] = record
             return record
         self.client.table("interactions").insert(payload).execute()
@@ -183,8 +190,11 @@ class SupabaseRepository:
     def list_model_versions(self) -> list[dict[str, Any]]:
         if not self.client:
             return self.local_model_versions
-        result = self.client.table("model_versions").select("*").order("created_at", desc=True).execute()
-        return result.data or []
+        try:
+            result = self.client.table("model_versions").select("*").order("created_at", desc=True).execute()
+            return result.data or []
+        except Exception:
+            return self.local_model_versions
 
     def register_model_version(self, payload: dict[str, Any]) -> None:
         if not self.client:

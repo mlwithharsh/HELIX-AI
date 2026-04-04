@@ -4,6 +4,9 @@ import { Mail, Lock, User, ArrowRight, Sparkles } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
+const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+
+
 const SignupPage = () => {
   const navigate = useNavigate();
   const [name, setName] = useState('');
@@ -23,7 +26,7 @@ const SignupPage = () => {
     setError('');
     
     try {
-      const res = await axios.post('https://reworked-echo.onrender.com/api/auth/signup', {
+      const res = await axios.post(`${BACKEND}/api/auth/signup`, {
         name,
         email,
         password

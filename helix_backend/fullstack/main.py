@@ -48,6 +48,29 @@ async def root():
     return {"message": "HELIX V1 API is online.", "docs": "/docs"}
 
 
+@app.post("/api/auth/signup")
+async def signup(payload: dict):
+    email = payload.get("email", "")
+    password = payload.get("password", "")
+    name = payload.get("name", "")
+    user_id, error = repository.signup(email, password, name)
+    if error:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail=error)
+    return {"user_id": user_id, "message": "Account created successfully"}
+
+
+@app.post("/api/auth/login")
+async def login(payload: dict):
+    email = payload.get("email", "")
+    password = payload.get("password", "")
+    user_id, error = repository.login(email, password)
+    if error:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=401, detail=error)
+    return {"user_id": user_id, "message": "Login successful"}
+
+
 @app.get("/api/status", response_model=StatusResponse)
 async def status(_: AuthDep, __: RateDep) -> StatusResponse:
     return StatusResponse(status="online", model_version=model_service.active_version, supabase_connected=repository.connected)
@@ -141,7 +164,16 @@ async def stream_chat(request: ChatRequest, _: AuthDep, __: RateDep):
             "metadata": metadata,
         }) + "\n"
 
-    return StreamingResponse(stream(), media_type="application/x-ndjson")
+    from fastapi.responses import Response
+    return StreamingResponse(
+        stream(),
+        media_type="application/x-ndjson",
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "*",
+            "Cache-Control": "no-cache",
+        }
+    )
 
 
 @app.post("/api/feedback", response_model=FeedbackResponse)
