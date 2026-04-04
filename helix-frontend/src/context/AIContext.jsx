@@ -70,17 +70,7 @@ export const AIProvider = ({ children }) => {
     };
   }, [fetchStatus, fetchHistory, fetchProfile, userId]);
 
-  useEffect(() => {
-    const clear = async () => {
-      try {
-        await userAPI.clearHistory(userId);
-      } catch (err) {
-        console.warn('Failed to clear backend history', err);
-      }
-      setHistory([]);
-    };
-    clear();
-  }, [personality, userId]);
+  // Note: History is now persistent and only cleared manually via the UI if needed
 
   const processText = async (text) => {
     setIsProcessing(true);

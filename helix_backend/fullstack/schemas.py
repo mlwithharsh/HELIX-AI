@@ -43,6 +43,8 @@ class InteractionRecord(BaseModel):
     model_version: str
     metadata: dict[str, Any]
     created_at: datetime
+    vote: str | None = None
+    tags: list[str] = Field(default_factory=list)
 
 
 class StatusResponse(BaseModel):
