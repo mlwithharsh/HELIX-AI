@@ -24,26 +24,34 @@ class AdaptiveInferenceService:
     def __init__(self, settings: Settings):
         self.settings = settings
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.tokenizer = AutoTokenizer.from_pretrained(settings.model_name)
-        if self.tokenizer.pad_token is None:
-            self.tokenizer.pad_token = self.tokenizer.eos_token
-        self.model = AutoModelForCausalLM.from_pretrained(settings.model_name)
-        self.model.to(self.device)
-        self.model.eval()
+        self._tokenizer = None
+        self._model = None
         self.cache = ResponseCache(settings.cache_ttl_seconds)
         self.active_version = settings.active_model_version
         self.reload_lock = asyncio.Lock()
-        # Pass API key directly from settings — no scattered os.getenv()
         self.groq_engine = NLPEngine(
             model_name=settings.groq_model_name,
             api_key=settings.groq_api_key,
         )
         logger.info(
-            f"AdaptiveInferenceService initialized: model={settings.model_name}, "
-            f"groq_model={settings.groq_model_name}, "
-            f"groq_key={'set' if settings.groq_api_key else 'MISSING'}, "
+            f"AdaptiveInferenceService initialized: mode={'HYBRID' if settings.use_local_llm else 'GROQ-ONLY'}, "
+            f"groq_model={settings.groq_model_name}, groq_key={'set' if settings.groq_api_key else 'MISSING'}, "
             f"device={self.device}"
         )
+
+    def _load_local_model(self):
+        """Lazy load the model and tokenizer only if needed to save RAM on startup."""
+        if not self.settings.use_local_llm:
+            raise RuntimeError("Local LLM usage is disabled in settings (HELIX_USE_LOCAL_LLM=false)")
+            
+        if self._model is None:
+            logger.info(f"[LocalModel] Loading {self.settings.model_name} into RAM (Lazy Load)...")
+            self._tokenizer = AutoTokenizer.from_pretrained(self.settings.model_name)
+            if self._tokenizer.pad_token is None:
+                self._tokenizer.pad_token = self._tokenizer.eos_token
+            self._model = AutoModelForCausalLM.from_pretrained(self.settings.model_name)
+            self._model.to(self.device).eval()
+            logger.info(f"[LocalModel] {self.settings.model_name} loaded successfully.")
 
     def _cache_key(self, user_id: str, message: str, profile: PersonalityProfile, personality: str) -> str:
         payload = json.dumps(
@@ -101,21 +109,26 @@ class AdaptiveInferenceService:
             logger.info(f"[Generate] Groq success ({len(groq_response)} chars)")
             return groq_response, "groq"
 
-        # Fallback: local distilgpt2
+        # Fallback: local model (only if enabled and Groq fails)
+        if not self.settings.use_local_llm:
+             logger.info("[Generate] Local fallback disabled by configuration.")
+             return groq_response, "groq-error (local disabled)"
+
         logger.warning(f"[Generate] Groq failed: {groq_response[:80]}. Falling back to local model.")
         try:
+            self._load_local_model()
             # Build a simple prompt for the local model
             local_prompt = f"{prompt}\nUser: {message}\nAssistant:"
-            encoded = self.tokenizer(local_prompt, return_tensors="pt", truncation=True, max_length=512).to(self.device)
-            generated = self.model.generate(
+            encoded = self._tokenizer(local_prompt, return_tensors="pt", truncation=True, max_length=512).to(self.device)
+            generated = self._model.generate(
                 **encoded,
                 max_new_tokens=max_new_tokens,
                 do_sample=True,
                 temperature=temperature,
                 top_p=top_p,
-                pad_token_id=self.tokenizer.eos_token_id,
+                pad_token_id=self._tokenizer.eos_token_id,
             )
-            response = self.tokenizer.decode(
+            response = self._tokenizer.decode(
                 generated[0][encoded["input_ids"].shape[1]:], skip_special_tokens=True
             ).strip()
             if response:

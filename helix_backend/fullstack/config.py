@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     active_model_version: str = Field(default="baseline-distilgpt2", alias="HELIX_MODEL_VERSION")
     adapter_root: str = Field(default="model_store/adapters", alias="HELIX_ADAPTER_ROOT")
     cache_ttl_seconds: int = Field(default=300, alias="HELIX_CACHE_TTL_SECONDS")
+    use_local_llm: bool = Field(default=True, alias="HELIX_USE_LOCAL_LLM")
     rate_limit_requests: int = Field(default=30, alias="HELIX_RATE_LIMIT_REQUESTS")
     rate_limit_window_seconds: int = Field(default=60, alias="HELIX_RATE_LIMIT_WINDOW_SECONDS")
 
