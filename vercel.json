@@ -1,0 +1,10 @@
+{
+  "buildCommand": "cd helix-frontend && npm install && npm run build",
+  "outputDirectory": "helix-frontend/dist",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
