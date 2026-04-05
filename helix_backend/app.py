@@ -1,10 +1,11 @@
-from flask import Flask, request, jsonify, Response, stream_with_context
+from flask import Flask, request, jsonify, Response, stream_with_context, redirect
 from flask_cors import CORS
 import os
 import sys
 import time
 import json
 import logging
+import threading
 from datetime import datetime
 from dotenv import load_dotenv
 
@@ -22,6 +23,7 @@ from fullstack.services.repository import SupabaseRepository
 from fullstack.config import get_settings
 from helix_backend.utils.network_checker.checker import helper as network_checker
 from helix_backend.edge_model.engine import edge_engine
+from helix_backend.router.router import get_routing_decision
 
 # Load Environment
 load_dotenv(os.path.join(project_root, 'helix-frontend', '.env'))
@@ -29,7 +31,7 @@ load_dotenv(os.path.join(project_root, 'helix-frontend', '.env'))
 # --- HELIX PRODUCTION APP ---
 app = Flask(__name__)
 app.start_time = time.time()
-CORS(app)
+CORS(app, resources={r"/api/*": {"origins": ["https://helix-ai-eta.vercel.app", "http://localhost:3000"]}})
 
 # Logging configuration
 logging.basicConfig(
