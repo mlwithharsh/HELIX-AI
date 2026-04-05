@@ -83,7 +83,7 @@ const SignupPage = () => {
               <input
                 type="email"
                 required
-                autoComplete="email"
+                autoComplete="username email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full bg-white/50 border border-black/5 rounded-2xl py-3.5 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-solace-purple/20 transition-all font-medium"
