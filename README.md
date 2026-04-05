@@ -1,6 +1,7 @@
 # HELIX AI
 
 HELIX AI is a modular, scalable artificial intelligence system designed to evolve from a conversational assistant into a full-stack intelligent platform. It builds upon the foundation of ECHO AI and extends it with adaptive learning, system-level integration, and multi-platform deployment.
+<img width="1902" height="977" alt="image" src="https://github.com/user-attachments/assets/190f503f-ea29-4f60-883d-1e4a9a4a9791" />
 
 ---
 
@@ -18,6 +19,7 @@ HELIX AI aims to bridge the gap between traditional AI assistants and deeply int
 - System-level data interaction capabilities  
 - Cross-platform support (Web and Android)  
 - Scalable backend design  
+<img width="1919" height="984" alt="image" src="https://github.com/user-attachments/assets/f919db10-f2b9-43bc-a457-bd2e28994788" />
 
 ---
 
@@ -104,6 +106,7 @@ AI-powered system monitoring
 Developer productivity tool
 AI integration platform for applications
 Experimental AI/OS research
+<img width="1905" height="951" alt="image" src="https://github.com/user-attachments/assets/9a6b749c-6d0e-4592-9a26-7256344c26eb" />
 
 ## Contributing
 Contributions are welcome. You can help by:
