@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Mail, Lock, User, ArrowRight, Sparkles } from 'lucide-react';
+import { Mail, Lock, User, ArrowRight, Sparkles, Loader2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
@@ -67,6 +67,7 @@ const SignupPage = () => {
               <input
                 type="text"
                 required
+                autoComplete="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="w-full bg-white/50 border border-black/5 rounded-2xl py-3.5 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-solace-purple/20 transition-all font-medium"
@@ -82,6 +83,7 @@ const SignupPage = () => {
               <input
                 type="email"
                 required
+                autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full bg-white/50 border border-black/5 rounded-2xl py-3.5 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-solace-purple/20 transition-all font-medium"
@@ -97,6 +99,7 @@ const SignupPage = () => {
               <input
                 type="password"
                 required
+                autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full bg-white/50 border border-black/5 rounded-2xl py-3.5 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-solace-purple/20 transition-all font-medium"
@@ -112,6 +115,7 @@ const SignupPage = () => {
               <input
                 type="password"
                 required
+                autoComplete="new-password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 className="w-full bg-white/50 border border-black/5 rounded-2xl py-3.5 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-solace-purple/20 transition-all font-medium"
@@ -135,6 +139,7 @@ const SignupPage = () => {
             disabled={loading}
             className="w-full btn-solace-primary flex items-center justify-center space-x-2 py-4 shadow-glow-purple disabled:opacity-50 mt-4"
           >
+            {loading && <Loader2 className="w-5 h-5 animate-spin" />}
             <span>{loading ? 'Creating account...' : 'Create Account'}</span>
             {!loading && <ArrowRight className="w-5 h-5" />}
           </button>

@@ -133,17 +133,23 @@ def process_text():
         
         # PERSIST to Supabase interaction table
         user_id = data.get('user_id') or "guest-user" 
-        interaction = repository.create_interaction(
-            user_id=user_id,
-            input_text=user_text,
-            response_text=response_text,
-            model_version="2.0.0",
-            metadata={
-                "personality": personality,
-                "analysis": analysis,
-                "reward": completed.get("reward")
-            }
-        )
+        interaction_id = None
+        try:
+            interaction = repository.create_interaction(
+                user_id=user_id,
+                input_text=user_text,
+                response_text=response_text,
+                model_version="2.0.0",
+                metadata={
+                    "personality": personality,
+                    "analysis": analysis,
+                    "reward": completed.get("reward")
+                }
+            )
+            interaction_id = interaction.id if interaction else f"local-{session_id or 'none'}"
+        except Exception as db_err:
+            print(f"DB persistence error (non-fatal): {db_err}")
+            interaction_id = f"local-{session_id or 'none'}"
         
         emotional_state = prepared.get("emotional_state", {})
         policy_state = prepared.get("policy_state", {})
@@ -151,7 +157,7 @@ def process_text():
         
         return jsonify({
             "type": "done",
-            "interaction_id": interaction.id,
+            "interaction_id": interaction_id,
             "text": user_text,
             "response": response_text,
             "emotion": analysis.get("emotion", "neutral").upper(),
@@ -229,6 +235,7 @@ def api_status():
     })
 
 @app.route('/api/chat/stream', methods=['POST', 'OPTIONS'])
+@app.route('/api/chat', methods=['POST', 'OPTIONS'])
 def api_chat_stream():
     if request.method == 'OPTIONS': return jsonify({"status": "ok"}), 200
     # Proxies to the main process_text logic but for /api path

@@ -9,12 +9,15 @@ import {
   ArrowLeft, 
   Heart,
   Sparkles, 
-  Loader2
+  Loader2,
+  AlertTriangle,
+  Wifi,
+  WifiOff
 } from 'lucide-react';
 
 const ChatPage = () => {
   const [inputText, setInputText] = useState('');
-  const { isProcessing, processText, history, profile, submitFeedback, systemLabel, personality } = useAI();
+  const { isProcessing, processText, history, profile, submitFeedback, systemLabel, personality, status, isColdStart } = useAI();
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
 
@@ -50,6 +53,35 @@ const ChatPage = () => {
 
   return (
     <div id="chat-page" className="h-screen flex flex-col bg-background overflow-hidden">
+      {/* Cold Start Banner */}
+      <AnimatePresence>
+        {(isColdStart || status === 'connecting') && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="bg-gradient-to-r from-amber-50 to-orange-50 border-b border-amber-200/60 px-4 py-3 relative z-30"
+          >
+            <div className="max-w-3xl mx-auto flex items-center space-x-3">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center">
+                  <AlertTriangle className="w-4 h-4 text-amber-600" />
+                </div>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold text-amber-800">Backend is waking up</p>
+                <p className="text-[10px] text-amber-600 leading-snug">
+                  Free tier server needs ~30s to cold start. Your first message may take a moment.
+                </p>
+              </div>
+              <div className="flex-shrink-0">
+                <Loader2 className="w-4 h-4 text-amber-500 animate-spin" />
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Chat Header */}
       <header className="px-6 py-4 border-b border-black/5 flex items-center justify-between bg-[rgba(244,239,230,0.92)] backdrop-blur-md relative z-20">
         <div className="flex items-center space-x-4">
@@ -59,8 +91,22 @@ const ChatPage = () => {
           <div>
             <h2 className="text-sm font-bold text-text-primary tracking-wide">{activePersonaName}</h2>
             <div className="flex items-center space-x-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-[#7f9476] animate-pulse" />
-              <span className="text-[10px] text-text-muted font-medium">Online · Ready to listen</span>
+              {status === 'online' ? (
+                <>
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#7f9476] animate-pulse" />
+                  <span className="text-[10px] text-text-muted font-medium">Online · Ready to listen</span>
+                </>
+              ) : status === 'connecting' ? (
+                <>
+                  <Loader2 className="w-3 h-3 text-amber-500 animate-spin" />
+                  <span className="text-[10px] text-amber-600 font-medium">Connecting...</span>
+                </>
+              ) : (
+                <>
+                  <WifiOff className="w-3 h-3 text-red-400" />
+                  <span className="text-[10px] text-red-400 font-medium">Offline</span>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -73,7 +119,7 @@ const ChatPage = () => {
       <div className="flex-1 overflow-hidden">
         <div className="h-full">
           {/* Chat Messages */}
-          <div className="overflow-y-auto px-6 py-8 space-y-8 scrollbar-hide">
+          <div className="overflow-y-auto px-6 py-8 space-y-8 scrollbar-hide" style={{ height: 'calc(100vh - 200px)' }}>
             <div className="max-w-3xl mx-auto space-y-6">
               {/* Empty State */}
               {history.length === 0 && !isProcessing && (
@@ -86,6 +132,11 @@ const ChatPage = () => {
                     <p className="text-text-secondary text-sm max-w-xs mx-auto leading-relaxed">
                       I'm here to listen. Share your thoughts, feelings, or just say hello.
                     </p>
+                    {isColdStart && (
+                      <p className="text-amber-600 text-xs font-medium mt-2 animate-pulse">
+                        ⏳ Server is warming up — first response may take ~30 seconds
+                      </p>
+                    )}
                   </div>
                   <div className="flex flex-wrap justify-center gap-2 max-w-sm">
                     {['Hey there 👋', 'I need to talk', 'Help me think'].map((suggestion) => (
@@ -190,6 +241,7 @@ const ChatPage = () => {
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Share your thoughts..."
+              autoComplete="off"
               className="w-full bg-white border border-black/8 rounded-2xl px-5 py-4 pr-16 text-text-primary placeholder-text-muted resize-none outline-none focus:border-[#7f9476]/30 focus:shadow-[0_0_0_3px_rgba(127,148,118,0.08)] transition-all duration-300 min-h-[56px] max-h-[160px] text-[14px] leading-relaxed shadow-sm"
               rows="1"
             />

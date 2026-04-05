@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Mail, Lock, ArrowRight, Sparkles } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Sparkles, Loader2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
@@ -60,6 +60,7 @@ const LoginPage = () => {
               <input
                 type="email"
                 required
+                autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full bg-white/50 border border-black/5 rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-solace-purple/20 transition-all font-medium"
@@ -75,6 +76,7 @@ const LoginPage = () => {
               <input
                 type="password"
                 required
+                autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full bg-white/50 border border-black/5 rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-solace-purple/20 transition-all font-medium"
@@ -98,6 +100,7 @@ const LoginPage = () => {
             disabled={loading}
             className="w-full btn-solace-primary flex items-center justify-center space-x-2 py-4 shadow-glow-purple disabled:opacity-50"
           >
+            {loading && <Loader2 className="w-5 h-5 animate-spin" />}
             <span>{loading ? 'Signing in...' : 'Sign In'}</span>
             {!loading && <ArrowRight className="w-5 h-5" />}
           </button>

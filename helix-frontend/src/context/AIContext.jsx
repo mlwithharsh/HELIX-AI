@@ -1,11 +1,14 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { coreAPI, feedbackAPI, modelAPI, textAPI, userAPI } from '../api/client';
 import toast from 'react-hot-toast';
 
 const AIContext = createContext();
 
+// Cold start timeout — Render free tier can take up to 60s
+const COLD_START_TIMEOUT = 15000;
+
 export const AIProvider = ({ children }) => {
-  const [status, setStatus] = useState('offline');
+  const [status, setStatus] = useState('connecting');
   const [userId, setUserId] = useState(() => localStorage.getItem('helix_user_id') || 'guest-user');
   const [personality, setPersonality] = useState('helix');
   const [history, setHistory] = useState([]);
@@ -13,14 +16,66 @@ export const AIProvider = ({ children }) => {
   const [lastResponse, setLastResponse] = useState(null);
   const [profile, setProfile] = useState(null);
   const [systemLabel, setSystemLabel] = useState('');
+  const [isColdStart, setIsColdStart] = useState(false);
+  const coldStartTimerRef = useRef(null);
+  const hasConnectedOnce = useRef(false);
 
   const fetchStatus = useCallback(async () => {
     try {
       const res = await coreAPI.getStatus();
       setStatus(res.data.status || 'online');
+      setIsColdStart(false);
+      hasConnectedOnce.current = true;
+      if (coldStartTimerRef.current) {
+        clearTimeout(coldStartTimerRef.current);
+        coldStartTimerRef.current = null;
+      }
     } catch (err) {
-      setStatus('offline');
+      if (!hasConnectedOnce.current) {
+        setStatus('connecting');
+      } else {
+        setStatus('offline');
+      }
     }
+  }, []);
+
+  // Warm up the backend on first mount — fires an early ping to wake Render
+  useEffect(() => {
+    const warmUp = async () => {
+      // Start cold start detection timer
+      coldStartTimerRef.current = setTimeout(() => {
+        if (!hasConnectedOnce.current) {
+          setIsColdStart(true);
+        }
+      }, COLD_START_TIMEOUT);
+
+      // Fire 3 pings with delay to warm up Render backend
+      for (let i = 0; i < 3; i++) {
+        try {
+          const res = await coreAPI.getStatus();
+          if (res.data?.status) {
+            setStatus(res.data.status);
+            setIsColdStart(false);
+            hasConnectedOnce.current = true;
+            if (coldStartTimerRef.current) {
+              clearTimeout(coldStartTimerRef.current);
+              coldStartTimerRef.current = null;
+            }
+            break;
+          }
+        } catch {
+          // Wait longer between retries during cold start
+          await new Promise(r => setTimeout(r, 5000));
+        }
+      }
+    };
+    warmUp();
+
+    return () => {
+      if (coldStartTimerRef.current) {
+        clearTimeout(coldStartTimerRef.current);
+      }
+    };
   }, []);
 
   const fetchProfile = useCallback(async () => {
@@ -69,8 +124,6 @@ export const AIProvider = ({ children }) => {
       window.removeEventListener('storage', handleStorageChange);
     };
   }, [fetchStatus, fetchHistory, fetchProfile, userId]);
-
-  // Note: History is now persistent and only cleared manually via the UI if needed
 
   const processText = async (text) => {
     setIsProcessing(true);
@@ -121,7 +174,15 @@ export const AIProvider = ({ children }) => {
     } catch (err) {
       console.error('API connection failed', err);
       setHistory((prev) => prev.filter((item) => item.interaction_id !== draft.interaction_id));
-      toast.error('Connection failed. Is the backend running on port 8000?');
+      
+      // Better error messaging based on error type
+      if (err?.code === 'ERR_NETWORK' || err?.message?.includes('Network Error')) {
+        toast.error('Backend is waking up — please try again in a moment');
+      } else if (err?.response?.status === 500) {
+        toast.error('Server error — the backend hit an issue. Try again.');
+      } else {
+        toast.error('Connection failed. Backend may be starting up.');
+      }
       throw err;
     } finally {
       setIsProcessing(false);
@@ -154,6 +215,7 @@ export const AIProvider = ({ children }) => {
       lastResponse,
       profile,
       systemLabel,
+      isColdStart,
       processText,
       submitFeedback,
       refreshStatus: fetchStatus

@@ -4,14 +4,26 @@ const apiToken = import.meta.env.VITE_API_TOKEN || 'dev-token';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_BACKEND_URL || 'https://reworked-echo.onrender.com',
+  timeout: 60000, // 60s timeout for Render cold starts
   headers: {
     'Content-Type': 'application/json',
     'x-api-token': apiToken,
   },
 });
 
+// Add response interceptor for better error handling
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.code === 'ECONNABORTED') {
+      error.message = 'Request timed out — server may be cold starting';
+    }
+    return Promise.reject(error);
+  }
+);
+
 export const coreAPI = {
-  getStatus: () => api.get('/api/status'),
+  getStatus: () => api.get('/api/status', { timeout: 10000 }), // Shorter timeout for health checks
 };
 
 export const userAPI = {
@@ -22,43 +34,7 @@ export const userAPI = {
 };
 
 export const textAPI = {
-  process: (payload) => api.post('/api/chat', payload),
-  stream: async (payload, onEvent) => {
-    const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'https://reworked-echo.onrender.com'}/api/chat/stream`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-token': apiToken,
-      },
-      body: JSON.stringify(payload),
-    });
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) {
-        // Process any remaining text in the buffer that didn't end with a newline
-        if (buffer.trim()) {
-          try {
-            onEvent(JSON.parse(buffer));
-          } catch (e) {
-            console.warn('Failed to parse trailing buffer', e);
-          }
-        }
-        break;
-      }
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        onEvent(JSON.parse(line));
-      }
-    }
-  },
+  process: (payload) => api.post('/api/chat/stream', payload),
 };
 
 export const feedbackAPI = {
