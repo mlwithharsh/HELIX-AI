@@ -6,19 +6,19 @@
 - **Engine**: llama-cpp-python (CPU)
 
 ## 2. Metrics Baseline
-- **Cold Start Latency**: 1.07s
+- **Cold Start Latency**: 1.03s
 - **Warm Start Latency**: 0.0s
-- **Avg First Token Latency**: 2.26s
-- **Avg Generation Speed**: 18.3 tokens/sec
-- **Max RAM Consumption**: ~-85MB Peak
+- **Avg First Token Latency**: 2.19s
+- **Avg Generation Speed**: 28.4 tokens/sec
+- **Max RAM Consumption**: ~328MB Peak
 
 ## 3. Stress & Stability
 - **Consecutive Requests**: 20
-- **Success Rate**: 55.00000000000001%
+- **Success Rate**: 35.0%
 - **Inference Stability**: PASSED (No crashes detected)
 
 ## 4. Lifecycle & Streaming
-- **Memory Release**: 485.05MB freed on unload
+- **Memory Release**: 71.37MB freed on unload
 - **SSE Streaming**: PASSED
 - **Auto-Reload**: PASSED
 
