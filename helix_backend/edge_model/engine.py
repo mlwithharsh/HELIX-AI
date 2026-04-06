@@ -21,8 +21,23 @@ class EdgeEngine:
         
         # Project base (one level up from edge_model/)
         _base = os.path.dirname(self.edge_dir)
-        default_model = os.path.join(_base, "models", "qwen2-05b-v1.gguf")
-        self.model_path = model_path or os.getenv("LOCAL_MODEL_PATH", default_model)
+        # Multi-Path Lookup for Render compatibility
+        search_paths = [
+            os.path.join(_base, "models", "qwen2-05b-v1.gguf"),
+            os.path.join(_base, "helix_backend", "models", "qwen2-05b-v1.gguf"),
+            os.path.join(os.path.dirname(_base), "models", "qwen2-05b-v1.gguf"),
+            os.path.join(os.getcwd(), "models", "qwen2-05b-v1.gguf"),
+            os.path.join(os.getcwd(), "helix_backend", "models", "qwen2-05b-v1.gguf"),
+        ]
+        found_model = None
+        for p in search_paths:
+            if os.path.exists(p):
+                found_model = p
+                self.logger.info(f"Lifecycle: Model found at {p}")
+                break
+        
+        self.model_path = model_path or os.getenv("LOCAL_MODEL_PATH", found_model or search_paths[0])
+
         
         # State
         self.process: Optional[subprocess.Popen] = None

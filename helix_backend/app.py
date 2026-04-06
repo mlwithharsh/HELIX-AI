@@ -89,8 +89,10 @@ def system_diagnostics():
         "engine": {
             "binary_exists": os.path.exists(bin_path),
             "binary_path": bin_path,
-            "model_exists": os.path.exists(os.path.join(project_root, "helix_backend", "models", "qwen2-05b-v1.gguf"))
+            "model_exists": os.path.exists(edge_engine.model_path),
+            "model_path": edge_engine.model_path
         },
+
         "system": {
             "ram_free_mb": int(psutil.virtual_memory().available / (1024*1024)),
             "cpu_count": os.cpu_count()

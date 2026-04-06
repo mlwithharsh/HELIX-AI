@@ -168,12 +168,14 @@ class NLPEngine:
         if total_routes > 0:
             self.metrics["ratio_edge_cloud"] = round(self.metrics["routing"]["edge"] / total_routes, 2)
 
-    def smart_generate(self, messages, max_tokens=200, temperature=0.7, privacy_mode=False, force_offline=False):
+    def smart_generate(self, messages, max_tokens=200, temperature=0.7, privacy_mode=False, force_offline=False, personality="Helix"):
         """Blocking version of the hybrid generator."""
         full_text = ""
-        for token in self.smart_generate_stream(messages, max_tokens, temperature, privacy_mode, force_offline):
+        # Fix: correctly pass personality to the stream generator
+        for token in self.smart_generate_stream(messages, max_tokens, temperature, privacy_mode, force_offline, personality):
             full_text += token
         return full_text
+
 
     def call_groq_model(self, messages, max_tokens=200, temperature=0.7):
         if not self.api_key:

@@ -35,3 +35,26 @@ chmod +x $SET_DIR/llama-server
 chmod +x $SET_DIR/llama-cli
 
 echo "✅ Edge AI binaries ready in $SET_DIR"
+
+# 3. Handle model placement
+MODEL_URL="https://huggingface.co/Qwen/Qwen2-0.5B-Instruct-GGUF/resolve/main/qwen2-0_5b-instruct-q4_0.gguf"
+MODEL_NAME="qwen2-05b-v1.gguf"
+
+# Check possible directories
+if [ -d "helix_backend/models" ]; then
+    MODEL_DIR="helix_backend/models"
+elif [ -d "models" ]; then
+    MODEL_DIR="models"
+else
+    mkdir -p helix_backend/models
+    MODEL_DIR="helix_backend/models"
+fi
+
+if [ ! -f "$MODEL_DIR/$MODEL_NAME" ]; then
+    echo "📥 Downloading model ($MODEL_NAME) from Hugging Face..."
+    curl -L $MODEL_URL -o "$MODEL_DIR/$MODEL_NAME"
+    echo "✅ Model ready in $MODEL_DIR"
+else
+    echo "✨ Model already exists in $MODEL_DIR"
+fi
+
