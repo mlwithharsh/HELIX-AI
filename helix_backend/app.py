@@ -60,6 +60,17 @@ logging.basicConfig(
 )
 logger = logging.getLogger("HELIX.API")
 
+@app.before_request
+def handle_options_preflight():
+    if request.method == 'OPTIONS':
+        res = Response()
+        res.headers['Access-Control-Allow-Origin'] = "https://helix-ai-eta.vercel.app"
+        res.headers['Access-Control-Allow-Methods'] = "GET, POST, PUT, DELETE, OPTIONS"
+        res.headers['Access-Control-Allow-Headers'] = "Content-Type, Authorization, X-API-Key, X-API-Token"
+        res.headers['Access-Control-Allow-Credentials'] = "true"
+        return res
+
+
 # Initialize Singletons with extreme caution
 try:
     settings = get_settings()
@@ -379,20 +390,14 @@ def chat_streaming():
     return Response(stream_with_context(generate()), mimetype='text/event-stream')
 
 
-# --- LEGACY COMPATIBILITY (REDIRECTS) ---
-@app.route('/api/chat', methods=['POST'])
-@app.route('/api/chat/stream', methods=['POST'])
-@app.route('/api/status', methods=['GET'])
-@app.route('/text/process', methods=['POST'])
-def legacy_routes():
-    # Redirect to v1 version (keeping method/data)
-    # FIX: Ensure we don't double-prefix if request is already v1
-    if request.path.startswith("/api/v1/"): return f"Already v1", 200
-    
-    target = request.path.replace("/api/", "/api/v1/", 1)
-    if request.path == "/text/process": target = "/api/v1/chat"
-    return redirect(target, code=307)
+@app.errorhandler(404)
+def handle_404(e):
+    path = request.path
+    if path.startswith("/api/") and not path.startswith("/api/v1/"):
+        new_path = path.replace("/api/", "/api/v1/", 1)
+        return redirect(new_path, code=307)
+    return jsonify({"error": "Path not found", "path": path}), 404
 
 if __name__ == '__main__':
-    # Production server usually run via Gunicorn, but this allows direct dev testing
-    app.run(host='0.0.0.0', port=8000, threaded=True)
+    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8000)), threaded=True)
+

@@ -63,7 +63,14 @@ class EdgeEngine:
             self.last_used = time.time()
             return True
 
+        # Render Free Tier Guard: Abort if RAM is critically low
+        available_ram_mb = psutil.virtual_memory().available / (1024 * 1024)
+        if available_ram_mb < 128:
+            self.logger.error(f"Lifecycle: OOM risk! Only {available_ram_mb:.0f}MB RAM free. Aborting edge start.")
+            return False
+
         if not os.path.exists(self.server_bin) or not os.path.exists(self.model_path):
+
             self.logger.error(f"Bin/Model missing: {self.server_bin} OR {self.model_path}")
             return False
 
