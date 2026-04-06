@@ -71,7 +71,47 @@ def handle_options_preflight():
         return res
 
 
+# --- DIAGNOSTICS & SYSTEM STATUS ---
+@app.route('/api/v1/diagnostics', methods=['GET'])
+def system_diagnostics():
+    """FORENSIC v1: Full system health check including binary and environment verification."""
+    bin_path = os.path.join(project_root, "helix_backend", "edge_model", "llama-server")
+    if not os.path.exists(bin_path):
+         bin_path = os.path.join(project_root, "edge_model", "llama-server")
+    
+    return jsonify({
+        "timestamp": datetime.now().isoformat(),
+        "env": {
+            "GROQ_KEY_PRESENT": bool(os.getenv("GROQ_API_KEY")),
+            "SUPABASE_URL_PRESENT": bool(os.getenv("SUPABASE_URL")),
+            "PORT": os.environ.get("PORT", "8000")
+        },
+        "engine": {
+            "binary_exists": os.path.exists(bin_path),
+            "binary_path": bin_path,
+            "model_exists": os.path.exists(os.path.join(project_root, "helix_backend", "models", "qwen2-05b-v1.gguf"))
+        },
+        "system": {
+            "ram_free_mb": int(psutil.virtual_memory().available / (1024*1024)),
+            "cpu_count": os.cpu_count()
+        }
+    })
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    """GLOBAL FORENSIC: Capture all server crashes and return the raw traceback."""
+    import traceback
+    logger.error(f"GLOBAL EXCEPTION: {e}\n{traceback.format_exc()}")
+    # Return JSON instead of HTML 500 page
+    return jsonify({
+        "error": "Internal Server Crash",
+        "exception": str(e),
+        "traceback": traceback.format_exc()
+    }), 500
+
+
 # Initialize Singletons with extreme caution
+
 try:
     settings = get_settings()
     nlp_engine = NLPEngine()
