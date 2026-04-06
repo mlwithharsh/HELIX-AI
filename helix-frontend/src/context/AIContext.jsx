@@ -157,7 +157,10 @@ export const AIProvider = ({ children }) => {
       const response = await fetch(`${BACKEND}/api/v1/chat/stream`, {
 
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'text/event-stream' 
+        },
         body: JSON.stringify({
           user_id: userId,
           message: text,
@@ -169,9 +172,23 @@ export const AIProvider = ({ children }) => {
       });
 
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      
+      // Safety Valve: Handle accidental JSON fallback if returned by server
+      const contentType = response.headers.get('Content-Type') || '';
+      if (contentType.includes('application/json')) {
+        const result = await response.json();
+        const fallbackText = result.response || result.message || '';
+        setHistory(prev => prev.map(item => 
+          item.interaction_id === draftId 
+            ? { ...item, response: fallbackText, pending: false }
+            : item
+        ));
+        return { response: fallbackText };
+      }
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
+
       let fullResponse = "";
 
       while (true) {

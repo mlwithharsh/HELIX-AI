@@ -384,19 +384,9 @@ def chat_streaming():
     privacy_mode = data.get('privacy_mode', False)
     force_offline = data.get('force_offline', False)
 
-    # SECURE FALLBACK: If client is not requesting event-stream, return full JSON
-    # This fixes SyntaxErrors on the Vercel frontend if it uses standard fetch()
-    accept_header = request.headers.get("Accept", "")
-    if "text/event-stream" not in accept_header:
-        logger.info(f"Stream called via standard Request: user={user_id}. Using JSON fallback.")
-        messages = [{"role": "user", "content": user_text}]
-        response_text = nlp_engine.smart_generate(
-            messages,
-            privacy_mode=privacy_mode,
-            force_offline=force_offline,
-            personality=personality
-        )
-        return jsonify({"response": response_text, "mode": "json_fallback"})
+    # SECURE STREAM: Removed JSON fallback for /stream endpoint to ensure 
+    # frontend reader always receives decodable SSE data.
+
 
     def generate():
         logger.info(f"SSE Stream starting: user={user_id}")
