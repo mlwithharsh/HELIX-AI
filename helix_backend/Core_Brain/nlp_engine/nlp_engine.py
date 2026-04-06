@@ -99,12 +99,16 @@ class NLPEngine:
             success = False
             full_response = ""
             try:
+                if edge_engine.is_downloading:
+                    yield "\n[Helix Status]: Downloading AI Brain (350MB). Please wait ~60s..."
+                
                 for token in edge_engine.generate_stream(messages, max_tokens):
                     success = True
                     full_response += token
                     yield token
             except Exception as e:
                 self.logger.error(f"EDGE primary stream error: {e}")
+
 
             # If edge failed AND we have permission to use cloud (not privacy/offline)
             if not success and not privacy_mode and not force_offline:

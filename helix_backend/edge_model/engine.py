@@ -43,9 +43,43 @@ class EdgeEngine:
         self.process: Optional[subprocess.Popen] = None
         self.port = 8081 # Use 8081 for internal sidecar
         self.is_loaded = False
+        self.is_downloading = False
         self.last_used = 0
         self.idle_timeout = 300 
         self._lock = threading.Lock()
+
+    def _ensure_model_exists(self) -> bool:
+        """Self-healing: Download model if missing on Render."""
+        if os.path.exists(self.model_path):
+            return True
+            
+        with self._lock:
+            if self.is_downloading:
+                return False # Still in progress
+            
+            self.is_downloading = True
+            self.logger.info(f"Lifecycle: Model missing! Starting self-healing download to {self.model_path}")
+            
+            # Ensure directory exists
+            os.makedirs(os.path.dirname(self.model_path), exist_ok=True)
+            
+            url = "https://huggingface.co/Qwen/Qwen2-0.5B-Instruct-GGUF/resolve/main/qwen2-0_5b-instruct-q4_0.gguf"
+            try:
+                import requests
+                with requests.get(url, stream=True, timeout=30) as r:
+                    r.raise_for_status()
+                    with open(self.model_path, 'wb') as f:
+                        for chunk in r.iter_content(chunk_size=8192):
+                            if chunk:
+                                f.write(chunk)
+                self.logger.info("Lifecycle: Model download successful.")
+                self.is_downloading = False
+                return True
+            except Exception as e:
+                self.logger.error(f"Lifecycle: Model download failed. {e}")
+                self.is_downloading = False
+                return False
+
         
         # Lifecycle monitor
         threading.Thread(target=self._idle_monitor, daemon=True).start()
@@ -84,10 +118,15 @@ class EdgeEngine:
             self.logger.error(f"Lifecycle: OOM risk! Only {available_ram_mb:.0f}MB RAM free. Aborting edge start.")
             return False
 
-        if not os.path.exists(self.server_bin) or not os.path.exists(self.model_path):
+        # Self-healing check
+        if not self._ensure_model_exists():
+             self.logger.error("Lifecycle: Model still missing after self-healing attempt.")
+             return False
 
-            self.logger.error(f"Bin/Model missing: {self.server_bin} OR {self.model_path}")
+        if not os.path.exists(self.server_bin):
+            self.logger.error(f"Binary missing: {self.server_bin}")
             return False
+
 
         try:
             self.logger.info(f"Lifecycle: Starting llama-server sidecar on port {self.port}...")
