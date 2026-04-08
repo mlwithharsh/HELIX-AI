@@ -62,6 +62,7 @@ const AgentPage = () => {
   const [variants, setVariants] = useState([]);
   const [schedules, setSchedules] = useState([]);
   const [logs, setLogs] = useState([]);
+  const [platformHealth, setPlatformHealth] = useState([]);
   const [analytics, setAnalytics] = useState(null);
   const [optimization, setOptimization] = useState(null);
   const [strategy, setStrategy] = useState(null);
@@ -116,18 +117,20 @@ const AgentPage = () => {
   async function loadDashboard() {
     setLoading(true);
     try {
-      const [brandRes, campaignRes, scheduleRes, logRes, analyticsRes] = await Promise.all([
+      const [brandRes, campaignRes, scheduleRes, logRes, analyticsRes, healthRes] = await Promise.all([
         marketingAPI.listBrandProfiles(),
         marketingAPI.listCampaigns(),
         marketingAPI.listSchedules(),
         marketingAPI.listDeliveryLogs(),
         marketingAPI.getAnalyticsSummary(),
+        marketingAPI.getPlatformHealth(),
       ]);
       startTransition(() => {
         setBrands(brandRes.data || []);
         setCampaigns(campaignRes.data || []);
         setSchedules(scheduleRes.data || []);
         setLogs(logRes.data || []);
+        setPlatformHealth(healthRes.data || []);
         setAnalytics(analyticsRes.data || null);
       });
       if (!selectedBrandId && brandRes.data?.[0]) {
@@ -672,6 +675,43 @@ const AgentPage = () => {
                 )}
 
                 <div className="grid grid-cols-1 gap-4">
+                  <SubPanel title="Platform Readiness">
+                    {platformHealth.length ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {platformHealth.map((item) => (
+                          <div
+                            key={item.platform}
+                            className={`rounded-2xl border px-4 py-4 ${
+                              item.configured
+                                ? 'border-[#7f9476]/18 bg-[rgba(127,148,118,0.08)]'
+                                : 'border-[#bfa98b]/18 bg-[rgba(191,169,139,0.08)]'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="text-sm font-semibold uppercase tracking-[0.16em] text-text-primary">
+                                {item.platform}
+                              </div>
+                              <span
+                                className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] ${
+                                  item.configured
+                                    ? 'bg-[#7f9476] text-white'
+                                    : 'bg-[#bfa98b] text-white'
+                                }`}
+                              >
+                                {item.configured ? 'Live Ready' : 'Needs Config'}
+                              </span>
+                            </div>
+                            <div className="mt-3 text-xs leading-relaxed text-text-secondary">
+                              {item.message || 'No status detail available.'}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <MiniEmpty>No adapter health data yet.</MiniEmpty>
+                    )}
+                  </SubPanel>
+
                   <SubPanel title="Scheduled Jobs">
                     {schedules.slice(0, 5).map((job) => (
                       <ListRow
