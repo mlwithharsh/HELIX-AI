@@ -4,7 +4,7 @@ import logging
 
 from .adapters import DiscordAdapter, LinkedInAdapter, RedditAdapter, TelegramAdapter, WebhookAdapter, XAdapter
 from .repository import LocalMarketingRepository
-from .schemas import DeliveryLogResponse
+from .schemas import DeliveryLogResponse, PlatformAdapterStatusResponse
 from ..config import Settings
 
 logger = logging.getLogger(__name__)
@@ -52,6 +52,20 @@ class MarketingDeliveryService:
         if processed:
             logger.info("Processed %s queued marketing jobs", processed)
         return processed
+
+    def platform_statuses(self) -> list[PlatformAdapterStatusResponse]:
+        statuses: list[PlatformAdapterStatusResponse] = []
+        for platform, adapter in sorted(self.adapters.items()):
+            valid, message = adapter.validate_credentials()
+            statuses.append(
+                PlatformAdapterStatusResponse(
+                    platform=platform,
+                    configured=bool(valid),
+                    supports_live=True,
+                    message=message,
+                )
+            )
+        return statuses
 
     def dispatch_job(self, job_id: str, execution_mode: str = "dry_run") -> DeliveryLogResponse | None:
         job = self.repository.get_scheduled_job(job_id)

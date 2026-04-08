@@ -230,6 +230,13 @@ class DispatchJobRequest(BaseModel):
     execution_mode: ExecutionMode = "dry_run"
 
 
+class PlatformAdapterStatusResponse(BaseModel):
+    platform: str
+    configured: bool
+    supports_live: bool = True
+    message: str = ""
+
+
 class RecordPerformanceEventRequest(BaseModel):
     campaign_id: str
     variant_id: str | None = None

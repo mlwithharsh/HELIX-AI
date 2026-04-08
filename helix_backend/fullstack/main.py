@@ -38,6 +38,7 @@ from .marketing.schemas import (
     DispatchJobRequest,
     GenerateVariantsRequest,
     GenerateVariantsResponse,
+    PlatformAdapterStatusResponse,
     PerformanceEventResponse,
     OptimizationSummaryResponse,
     RecordPerformanceEventRequest,
@@ -269,6 +270,11 @@ async def dispatch_campaign_job(
 @app.get("/api/marketing/delivery-logs", response_model=list[DeliveryLogResponse])
 async def list_delivery_logs(_: AuthDep, __: RateDep, platform: str | None = None) -> list[DeliveryLogResponse]:
     return marketing_repository.list_delivery_logs(platform=platform)
+
+
+@app.get("/api/marketing/platform-health", response_model=list[PlatformAdapterStatusResponse])
+async def get_platform_health(_: AuthDep, __: RateDep) -> list[PlatformAdapterStatusResponse]:
+    return marketing_delivery_service.platform_statuses()
 
 
 @app.post("/api/marketing/performance-events", response_model=PerformanceEventResponse)

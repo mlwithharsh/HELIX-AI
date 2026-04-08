@@ -69,6 +69,7 @@ export const marketingAPI = {
   dispatchJob: (jobId, executionMode = 'dry_run') =>
     api.post(`/api/marketing/jobs/${jobId}/dispatch-now`, { execution_mode: executionMode }),
   listDeliveryLogs: (platform) => api.get('/api/marketing/delivery-logs', { params: platform ? { platform } : {} }),
+  getPlatformHealth: () => api.get('/api/marketing/platform-health'),
   recordPerformanceEvent: (payload) => api.post('/api/marketing/performance-events', payload),
   getAnalyticsSummary: (campaignId) =>
     api.get('/api/marketing/analytics/summary', { params: campaignId ? { campaign_id: campaignId } : {} }),
