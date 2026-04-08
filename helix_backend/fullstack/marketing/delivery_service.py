@@ -1,0 +1,99 @@
+from __future__ import annotations
+
+import logging
+
+from .adapters import TelegramAdapter, WebhookAdapter
+from .repository import LocalMarketingRepository
+from .schemas import DeliveryLogResponse
+from ..config import Settings
+
+logger = logging.getLogger(__name__)
+
+try:
+    from apscheduler.schedulers.background import BackgroundScheduler
+except Exception:  # pragma: no cover
+    BackgroundScheduler = None
+
+
+class MarketingDeliveryService:
+    """Executes queued jobs through platform adapters and records delivery logs."""
+
+    def __init__(self, repository: LocalMarketingRepository, settings: Settings):
+        self.repository = repository
+        self.settings = settings
+        self.scheduler = None
+        self.adapters = {
+            "telegram": TelegramAdapter(settings),
+            "webhook": WebhookAdapter(settings),
+        }
+
+    def start(self) -> None:
+        if BackgroundScheduler is None or self.scheduler is not None:
+            return
+        self.scheduler = BackgroundScheduler(timezone="UTC")
+        self.scheduler.add_job(self.process_queued_jobs, "interval", seconds=15, id="helix_marketing_delivery")
+        self.scheduler.start()
+
+    def shutdown(self) -> None:
+        if self.scheduler is not None:
+            self.scheduler.shutdown(wait=False)
+            self.scheduler = None
+
+    def process_queued_jobs(self, execution_mode: str = "dry_run") -> int:
+        jobs = self.repository.list_scheduled_jobs(status="queued")
+        processed = 0
+        for job in jobs:
+            if self.dispatch_job(job.id, execution_mode=execution_mode):
+                processed += 1
+        if processed:
+            logger.info("Processed %s queued marketing jobs", processed)
+        return processed
+
+    def dispatch_job(self, job_id: str, execution_mode: str = "dry_run") -> DeliveryLogResponse | None:
+        job = self.repository.get_scheduled_job(job_id)
+        if not job:
+            return None
+        variant = self.repository.get_variant(job.variant_id)
+        if not variant:
+            self.repository.update_scheduled_job_status(job_id, "failed", "Variant not found")
+            return None
+        adapter = self.adapters.get(job.platform.lower())
+        if not adapter:
+            self.repository.update_scheduled_job_status(job_id, "failed", f"No adapter configured for {job.platform}")
+            return None
+
+        self.repository.update_scheduled_job_status(job_id, "running")
+        variant_payload = variant.model_dump()
+        payload = adapter.format_payload(variant_payload)
+
+        if execution_mode == "live":
+            raw_response = adapter.send(payload)
+        else:
+            raw_response = adapter.dry_run(payload)
+
+        normalized = adapter.handle_response(raw_response)
+        if normalized.get("success"):
+            self.repository.update_scheduled_job_status(job_id, "completed")
+            return self.repository.create_delivery_log(
+                job_id=job.id,
+                platform=job.platform,
+                request_payload=payload,
+                response_payload=raw_response,
+                status=str(normalized.get("normalized_status", "completed")),
+                external_post_id=str(normalized.get("external_post_id", "")),
+                execution_mode=execution_mode,
+            )
+
+        error_message = str(normalized.get("error", "Delivery failed"))
+        updated_job = self.repository.increment_scheduled_job_retry(job.id, error_message)
+        final_status = "queued" if updated_job and updated_job.retry_count < self.settings.marketing_max_retries else "failed"
+        self.repository.update_scheduled_job_status(job_id, final_status, error_message)
+        return self.repository.create_delivery_log(
+            job_id=job.id,
+            platform=job.platform,
+            request_payload=payload,
+            response_payload=raw_response,
+            status="failed",
+            external_post_id="",
+            execution_mode=execution_mode,
+        )

@@ -22,13 +22,22 @@ from .services.retrieval_service import RetrievalService
 from .services.reward_service import feedback_reward
 from .services.training_service import OfflineRLHFService
 from .marketing import LocalMarketingRepository, MarketingCampaignService, MarketingPromptEngine, MarketingStrategyService
+from .marketing import MarketingApprovalService, MarketingSafetyService, MarketingSchedulerService
+from .marketing import MarketingDeliveryService
 from .marketing.schemas import (
+    ApprovalResultResponse,
+    ApproveVariantRequest,
     BrandProfileResponse,
     CampaignResponse,
     CreateBrandProfileRequest,
     CreateCampaignRequest,
+    DeliveryLogResponse,
+    DispatchJobRequest,
     GenerateVariantsRequest,
     GenerateVariantsResponse,
+    ScheduleCampaignRequest,
+    ScheduleCampaignResponse,
+    ScheduledJobResponse,
     StrategyRequest,
     StrategyResponse,
     UpdateBrandProfileRequest,
@@ -50,6 +59,10 @@ marketing_campaign_service = MarketingCampaignService(
     marketing_strategy_service,
     marketing_prompt_engine,
 )
+marketing_safety_service = MarketingSafetyService(marketing_repository)
+marketing_approval_service = MarketingApprovalService(marketing_repository, marketing_safety_service)
+marketing_scheduler_service = MarketingSchedulerService(marketing_repository)
+marketing_delivery_service = MarketingDeliveryService(marketing_repository, settings)
 
 app = FastAPI(title=settings.app_name)
 app.add_middleware(
@@ -62,6 +75,18 @@ app.add_middleware(
 
 AuthDep = Annotated[str, Depends(require_api_token)]
 RateDep = Annotated[None, Depends(rate_limit_dependency)]
+
+
+@app.on_event("startup")
+async def on_startup() -> None:
+    marketing_scheduler_service.start()
+    marketing_delivery_service.start()
+
+
+@app.on_event("shutdown")
+async def on_shutdown() -> None:
+    marketing_scheduler_service.shutdown()
+    marketing_delivery_service.shutdown()
 
 
 @app.get("/")
@@ -171,6 +196,71 @@ async def list_campaign_variants(campaign_id: str, _: AuthDep, __: RateDep):
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
     return {"items": [item.model_dump() for item in marketing_repository.list_variants(campaign_id)]}
+
+
+@app.post("/api/marketing/variants/{variant_id}/approve", response_model=ApprovalResultResponse)
+async def review_campaign_variant(
+    variant_id: str,
+    payload: ApproveVariantRequest,
+    _: AuthDep,
+    __: RateDep,
+) -> ApprovalResultResponse:
+    result = marketing_approval_service.review_variant(variant_id, approved=payload.approved)
+    if not result:
+        raise HTTPException(status_code=404, detail="Variant not found")
+    return result
+
+
+@app.post("/api/marketing/campaigns/{campaign_id}/schedule", response_model=ScheduleCampaignResponse)
+async def schedule_campaign(
+    campaign_id: str,
+    payload: ScheduleCampaignRequest,
+    _: AuthDep,
+    __: RateDep,
+) -> ScheduleCampaignResponse:
+    campaign = marketing_repository.get_campaign(campaign_id)
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    return marketing_scheduler_service.schedule_campaign(campaign_id, payload)
+
+
+@app.get("/api/marketing/schedules", response_model=list[ScheduledJobResponse])
+async def list_campaign_schedules(_: AuthDep, __: RateDep, status: str | None = None) -> list[ScheduledJobResponse]:
+    return marketing_repository.list_scheduled_jobs(status=status)
+
+
+@app.post("/api/marketing/schedules/{job_id}/pause", response_model=ScheduledJobResponse)
+async def pause_campaign_schedule(job_id: str, _: AuthDep, __: RateDep) -> ScheduledJobResponse:
+    job = marketing_repository.update_scheduled_job_status(job_id, "paused")
+    if not job:
+        raise HTTPException(status_code=404, detail="Scheduled job not found")
+    return job
+
+
+@app.post("/api/marketing/schedules/{job_id}/resume", response_model=ScheduledJobResponse)
+async def resume_campaign_schedule(job_id: str, _: AuthDep, __: RateDep) -> ScheduledJobResponse:
+    job = marketing_repository.update_scheduled_job_status(job_id, "pending")
+    if not job:
+        raise HTTPException(status_code=404, detail="Scheduled job not found")
+    return job
+
+
+@app.post("/api/marketing/jobs/{job_id}/dispatch-now", response_model=DeliveryLogResponse)
+async def dispatch_campaign_job(
+    job_id: str,
+    payload: DispatchJobRequest,
+    _: AuthDep,
+    __: RateDep,
+) -> DeliveryLogResponse:
+    log = marketing_delivery_service.dispatch_job(job_id, execution_mode=payload.execution_mode)
+    if not log:
+        raise HTTPException(status_code=404, detail="Scheduled job not found or dispatch failed before logging")
+    return log
+
+
+@app.get("/api/marketing/delivery-logs", response_model=list[DeliveryLogResponse])
+async def list_delivery_logs(_: AuthDep, __: RateDep, platform: str | None = None) -> list[DeliveryLogResponse]:
+    return marketing_repository.list_delivery_logs(platform=platform)
 
 
 @app.get("/api/status", response_model=StatusResponse)

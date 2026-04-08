@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     use_local_llm: bool = Field(default=True, alias="HELIX_USE_LOCAL_LLM")
     rate_limit_requests: int = Field(default=30, alias="HELIX_RATE_LIMIT_REQUESTS")
     rate_limit_window_seconds: int = Field(default=60, alias="HELIX_RATE_LIMIT_WINDOW_SECONDS")
+    marketing_webhook_url: str | None = Field(default=None, alias="HELIX_MARKETING_WEBHOOK_URL")
+    telegram_bot_token: str | None = Field(default=None, alias="HELIX_TELEGRAM_BOT_TOKEN")
+    telegram_chat_id: str | None = Field(default=None, alias="HELIX_TELEGRAM_CHAT_ID")
+    marketing_max_retries: int = Field(default=3, alias="HELIX_MARKETING_MAX_RETRIES")
     root_dir: str = str(ROOT_DIR)
 
 

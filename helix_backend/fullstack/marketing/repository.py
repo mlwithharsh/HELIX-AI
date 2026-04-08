@@ -4,6 +4,7 @@ import json
 import logging
 import sqlite3
 from contextlib import contextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
@@ -15,6 +16,8 @@ from .schemas import (
     CampaignVariantResponse,
     CreateBrandProfileRequest,
     CreateCampaignRequest,
+    DeliveryLogResponse,
+    ScheduledJobResponse,
     UpdateCampaignRequest,
     UpdateBrandProfileRequest,
 )
@@ -272,6 +275,8 @@ class LocalMarketingRepository:
         ]
 
     def update_campaign(self, campaign_id: str, payload: UpdateCampaignRequest) -> CampaignResponse | None:
+        if isinstance(payload, dict):
+            payload = UpdateCampaignRequest(**payload)
         with self._connect() as conn:
             existing = conn.execute(
                 "SELECT * FROM campaigns WHERE id = ?",
@@ -404,6 +409,227 @@ class LocalMarketingRepository:
                 score=row["score"],
                 experiment_group=row["experiment_group"],
                 approval_status=row["approval_status"],
+                created_at=row["created_at"],
+            )
+            for row in rows
+        ]
+
+    def update_variant_approval(self, variant_id: str, approval_status: str) -> CampaignVariantResponse | None:
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE campaign_variants SET approval_status = ? WHERE id = ?",
+                (approval_status, variant_id),
+            )
+        return self.get_variant(variant_id)
+
+    def has_duplicate_variant_content(
+        self,
+        *,
+        campaign_id: str,
+        platform: str,
+        generated_text: str,
+        exclude_variant_id: str | None = None,
+    ) -> bool:
+        query = """
+            SELECT 1 FROM campaign_variants
+            WHERE campaign_id = ? AND platform = ? AND LOWER(TRIM(generated_text)) = LOWER(TRIM(?))
+        """
+        params: list[str] = [campaign_id, platform, generated_text]
+        if exclude_variant_id:
+            query += " AND id != ?"
+            params.append(exclude_variant_id)
+        query += " LIMIT 1"
+        with self._connect() as conn:
+            row = conn.execute(query, tuple(params)).fetchone()
+        return row is not None
+
+    def create_scheduled_job(
+        self,
+        *,
+        campaign_id: str,
+        variant_id: str,
+        platform: str,
+        run_at: datetime,
+        timezone_name: str,
+        status: str,
+    ) -> ScheduledJobResponse:
+        record_id = str(uuid4())
+        created_at = utc_now_iso()
+        normalized_run_at = run_at.astimezone(timezone.utc).isoformat() if run_at.tzinfo else run_at.replace(tzinfo=timezone.utc).isoformat()
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO scheduled_jobs (
+                    id, campaign_id, variant_id, platform, run_at, timezone, status, retry_count, last_error, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, '', ?)
+                """,
+                (record_id, campaign_id, variant_id, platform, normalized_run_at, timezone_name, status, created_at),
+            )
+        return self.get_scheduled_job(record_id)
+
+    def get_scheduled_job(self, job_id: str) -> ScheduledJobResponse | None:
+        with self._connect() as conn:
+            row = conn.execute("SELECT * FROM scheduled_jobs WHERE id = ?", (job_id,)).fetchone()
+        if not row:
+            return None
+        return ScheduledJobResponse(
+            id=row["id"],
+            campaign_id=row["campaign_id"],
+            variant_id=row["variant_id"],
+            platform=row["platform"],
+            run_at=row["run_at"],
+            timezone=row["timezone"],
+            status=row["status"],
+            retry_count=row["retry_count"],
+            last_error=row["last_error"],
+            created_at=row["created_at"],
+        )
+
+    def list_scheduled_jobs(self, status: str | None = None) -> list[ScheduledJobResponse]:
+        query = "SELECT * FROM scheduled_jobs"
+        params: tuple[str, ...] = ()
+        if status:
+            query += " WHERE status = ?"
+            params = (status,)
+        query += " ORDER BY run_at ASC"
+        with self._connect() as conn:
+            rows = conn.execute(query, params).fetchall()
+        return [
+            ScheduledJobResponse(
+                id=row["id"],
+                campaign_id=row["campaign_id"],
+                variant_id=row["variant_id"],
+                platform=row["platform"],
+                run_at=row["run_at"],
+                timezone=row["timezone"],
+                status=row["status"],
+                retry_count=row["retry_count"],
+                last_error=row["last_error"],
+                created_at=row["created_at"],
+            )
+            for row in rows
+        ]
+
+    def update_scheduled_job_status(self, job_id: str, status: str, last_error: str = "") -> ScheduledJobResponse | None:
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE scheduled_jobs SET status = ?, last_error = ? WHERE id = ?",
+                (status, last_error, job_id),
+            )
+        return self.get_scheduled_job(job_id)
+
+    def increment_scheduled_job_retry(self, job_id: str, last_error: str) -> ScheduledJobResponse | None:
+        with self._connect() as conn:
+            conn.execute(
+                """
+                UPDATE scheduled_jobs
+                SET retry_count = retry_count + 1, last_error = ?
+                WHERE id = ?
+                """,
+                (last_error, job_id),
+            )
+        return self.get_scheduled_job(job_id)
+
+    def mark_due_jobs_queued(self, now: datetime) -> int:
+        normalized_now = now.astimezone(timezone.utc).isoformat()
+        with self._connect() as conn:
+            cursor = conn.execute(
+                """
+                UPDATE scheduled_jobs
+                SET status = 'queued'
+                WHERE status = 'pending' AND run_at <= ?
+                """,
+                (normalized_now,),
+            )
+            return cursor.rowcount or 0
+
+    def has_recent_scheduled_post(self, *, platform: str, window_minutes: int) -> bool:
+        threshold = (datetime.now(timezone.utc)).timestamp() - (window_minutes * 60)
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT run_at FROM scheduled_jobs WHERE platform = ? AND status IN ('pending', 'queued', 'running', 'completed') ORDER BY run_at DESC LIMIT 10",
+                (platform,),
+            ).fetchall()
+        for row in rows:
+            try:
+                run_at = datetime.fromisoformat(row["run_at"].replace("Z", "+00:00")).timestamp()
+            except Exception:
+                continue
+            if run_at >= threshold:
+                return True
+        return False
+
+    def create_delivery_log(
+        self,
+        *,
+        job_id: str,
+        platform: str,
+        request_payload: dict,
+        response_payload: dict,
+        status: str,
+        external_post_id: str,
+        execution_mode: str,
+    ) -> DeliveryLogResponse:
+        record_id = str(uuid4())
+        created_at = utc_now_iso()
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO delivery_logs (
+                    id, job_id, platform, request_payload, response_payload, status,
+                    external_post_id, execution_mode, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    record_id,
+                    job_id,
+                    platform,
+                    json.dumps(request_payload),
+                    json.dumps(response_payload),
+                    status,
+                    external_post_id,
+                    execution_mode,
+                    created_at,
+                ),
+            )
+        return self.get_delivery_log(record_id)
+
+    def get_delivery_log(self, log_id: str) -> DeliveryLogResponse | None:
+        with self._connect() as conn:
+            row = conn.execute("SELECT * FROM delivery_logs WHERE id = ?", (log_id,)).fetchone()
+        if not row:
+            return None
+        return DeliveryLogResponse(
+            id=row["id"],
+            job_id=row["job_id"],
+            platform=row["platform"],
+            request_payload=self._decode_json(row["request_payload"], {}),
+            response_payload=self._decode_json(row["response_payload"], {}),
+            status=row["status"],
+            external_post_id=row["external_post_id"],
+            execution_mode=row["execution_mode"],
+            created_at=row["created_at"],
+        )
+
+    def list_delivery_logs(self, platform: str | None = None) -> list[DeliveryLogResponse]:
+        query = "SELECT * FROM delivery_logs"
+        params: tuple[str, ...] = ()
+        if platform:
+            query += " WHERE platform = ?"
+            params = (platform,)
+        query += " ORDER BY created_at DESC"
+        with self._connect() as conn:
+            rows = conn.execute(query, params).fetchall()
+        return [
+            DeliveryLogResponse(
+                id=row["id"],
+                job_id=row["job_id"],
+                platform=row["platform"],
+                request_payload=self._decode_json(row["request_payload"], {}),
+                response_payload=self._decode_json(row["response_payload"], {}),
+                status=row["status"],
+                external_post_id=row["external_post_id"],
+                execution_mode=row["execution_mode"],
                 created_at=row["created_at"],
             )
             for row in rows

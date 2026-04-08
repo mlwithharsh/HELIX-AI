@@ -134,9 +134,17 @@ class MarketingCampaignService:
                 return f"If you're building around {offer}, clarity wins faster than noise."
             return f"The easiest way to lose attention in a {intent} campaign is to say too much."
         if platform.lower() == "telegram":
-            return f"Quick update: we're sharpening the {intent} message for {offer}."
+            if experiment_label == "A":
+                return f"Quick update: we're sharpening the {intent} message for {offer}."
+            return f"New angle for {offer}: a tighter {intent} message with a cleaner next step."
+        if platform.lower() == "discord":
+            if experiment_label == "A":
+                return f"Quick idea for the community: a cleaner way to frame {offer}."
+            return f"Different angle: what if the message around {offer} did less, but landed harder?"
         if platform.lower() == "email":
-            return f"Subject: A clearer way to improve results with {offer}"
+            if experiment_label == "A":
+                return f"Subject: A clearer way to improve results with {offer}"
+            return f"Subject: What usually blocks results before {offer} even gets a chance"
         return f"{offer}: a clearer way to move your {intent} campaign forward."
 
     def _body_for(self, platform: str, audience: str, offer: str, strategy: StrategyResponse) -> str:
@@ -153,7 +161,11 @@ class MarketingCampaignService:
         if platform.lower() == "x":
             return f"Strong campaigns for {audience} usually come down to one useful message and one clear next step."
         if platform.lower() == "telegram":
-            return f"This version is built for {audience} and keeps the message direct, timely, and easy to act on."
+            return (
+                f"This version is built for {audience} and keeps the message direct, timely, and easy to act on."
+                if strategy.inferred_intent != "engagement"
+                else f"This version is built for {audience} and leans into a direct prompt that invites a quick response."
+            )
         return f"This content is aimed at {audience} and shaped around a {strategy.tone_direction} style."
 
     def _cta_for(self, platform: str, cta_direction: str, offer: str) -> str:

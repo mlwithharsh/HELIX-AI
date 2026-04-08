@@ -167,6 +167,17 @@ class GenerateVariantsResponse(BaseModel):
     variants: list[CampaignVariantResponse] = Field(default_factory=list)
 
 
+class ApproveVariantRequest(BaseModel):
+    approved: bool
+    notes: str = ""
+
+
+class ApprovalResultResponse(BaseModel):
+    variant: CampaignVariantResponse
+    safe_to_schedule: bool
+    reasons: list[str] = Field(default_factory=list)
+
+
 class TemplateResponse(BaseModel):
     id: str
     name: str
@@ -192,6 +203,17 @@ class ScheduledJobResponse(BaseModel):
     created_at: datetime
 
 
+class ScheduleCampaignRequest(BaseModel):
+    variant_ids: list[str]
+    run_at: datetime
+    timezone: str = "UTC"
+
+
+class ScheduleCampaignResponse(BaseModel):
+    jobs: list[ScheduledJobResponse] = Field(default_factory=list)
+    rejected_variant_ids: list[str] = Field(default_factory=list)
+
+
 class DeliveryLogResponse(BaseModel):
     id: str
     job_id: str
@@ -202,6 +224,10 @@ class DeliveryLogResponse(BaseModel):
     external_post_id: str = ""
     execution_mode: ExecutionMode = "dry_run"
     created_at: datetime
+
+
+class DispatchJobRequest(BaseModel):
+    execution_mode: ExecutionMode = "dry_run"
 
 
 class PerformanceEventResponse(BaseModel):
