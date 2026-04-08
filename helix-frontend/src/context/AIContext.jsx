@@ -3,6 +3,7 @@ import { coreAPI, feedbackAPI, modelAPI, textAPI, userAPI } from '../api/client'
 import toast from 'react-hot-toast';
 const rawBackend = import.meta.env.VITE_BACKEND_URL || 'https://reworked-echo.onrender.com';
 const BACKEND = rawBackend.endsWith('/') ? rawBackend.slice(0, -1) : rawBackend;
+const API_TOKEN = import.meta.env.VITE_API_TOKEN || 'dev-token';
 
 
 const AIContext = createContext();
@@ -21,8 +22,10 @@ export const AIProvider = ({ children }) => {
   const [profile, setProfile] = useState(null);
   const [systemLabel, setSystemLabel] = useState('');
   const [isColdStart, setIsColdStart] = useState(false);
+  const [mode, setMode] = useState('auto'); // auto | edge | cloud
   const coldStartTimerRef = useRef(null);
   const hasConnectedOnce = useRef(false);
+  const metricsRef = useRef({ tokens_per_sec: 0, latency_sec: 0 });
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -154,20 +157,21 @@ export const AIProvider = ({ children }) => {
         return rows;
       });
 
-      const response = await fetch(`${BACKEND}/api/v1/chat/stream`, {
-
+      const response = await fetch(`${BACKEND}/api/chat/stream`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Accept': 'text/event-stream' 
+          'Accept': 'application/x-ndjson',
+          'x-api-token': API_TOKEN,
         },
         body: JSON.stringify({
           user_id: userId,
           message: text,
           history: outboundHistory,
           personality,
+          mode, // Pass current mode
           privacy_mode: options.privacy_mode || false,
-          force_offline: options.force_offline || false
+          force_offline: (mode === 'edge') || options.force_offline || false
         }),
       });
 
@@ -190,31 +194,50 @@ export const AIProvider = ({ children }) => {
       const decoder = new TextDecoder();
 
       let fullResponse = "";
+      let buffer = "";
 
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
         
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || "";
         
         for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const dataStr = line.slice(6);
-            if (dataStr === '[DONE]') break;
-            
-            try {
-              const data = JSON.parse(dataStr);
-              if (data.token) {
-                fullResponse += data.token;
-                // Live update history for streaming effect
-                setHistory(prev => prev.map(item => 
-                  item.interaction_id === draftId 
-                    ? { ...item, response: fullResponse }
-                    : item
-                ));
+          if (!line.trim()) continue;
+          try {
+            const data = JSON.parse(line);
+            if (data.type === 'delta' && data.content) {
+              fullResponse += data.content;
+
+              if (data.metrics) {
+                metricsRef.current = data.metrics;
               }
-            } catch (e) { console.warn("JSON parse error in stream", e); }
+
+              setHistory(prev => prev.map(item =>
+                item.interaction_id === draftId
+                  ? { ...item, response: fullResponse, metrics: metricsRef.current }
+                  : item
+              ));
+            }
+
+            if (data.type === 'done') {
+              setHistory(prev => prev.map(item =>
+                item.interaction_id === draftId
+                  ? {
+                      ...item,
+                      interaction_id: data.interaction_id || draftId,
+                      response: data.response || fullResponse,
+                      metadata: data.metadata || {},
+                      pending: false,
+                      metrics: metricsRef.current,
+                    }
+                  : item
+              ));
+            }
+          } catch (e) {
+            console.warn("JSON parse error in stream", e);
           }
         }
       }
@@ -262,6 +285,8 @@ export const AIProvider = ({ children }) => {
       userId,
       personality,
       setPersonality,
+      mode,
+      setMode,
       history,
       isProcessing,
       lastResponse,

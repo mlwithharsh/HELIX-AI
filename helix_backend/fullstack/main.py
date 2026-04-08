@@ -16,6 +16,7 @@ from .rate_limit import rate_limit_dependency
 from .schemas import FeedbackRequest, FeedbackResponse, PersonalityProfile, StatusResponse, TrainingRunRequest, TrainingRunResponse, ChatRequest
 from .services.model_service import AdaptiveInferenceService
 from .services.profile_adapter import infer_profile_from_message, update_profile_from_feedback
+from .services.prompt_builder import build_conditioned_prompt
 from .services.repository import SupabaseRepository
 from .services.retrieval_service import RetrievalService
 from .services.reward_service import feedback_reward
@@ -104,15 +105,30 @@ async def chat(request: ChatRequest, _: AuthDep, __: RateDep):
 
     versions = repository.list_model_versions()
     retrieved = retrieval_service.retrieve_successful_examples(request.user_id, request.message)
-    response_text, metadata, _ = await model_service.stream_response(
-        user_id=request.user_id,
-        message=request.message,
-        profile=profile,
-        history=request.history,
-        retrieved_examples=retrieved,
-        versions=versions,
-        personality=request.personality,
+    model_version, _ = model_service.choose_ab_bucket(versions)
+    prompt = build_conditioned_prompt(
+        request.message,
+        profile,
+        request.history,
+        retrieved,
+        model_version,
+        request.personality,
     )
+    response_text, backend = model_service.generate_response(
+        prompt=prompt,
+        message=request.message,
+        history=request.history,
+        personality=request.personality,
+        mode=request.mode,
+        privacy_mode=request.privacy_mode,
+        force_offline=request.force_offline,
+    )
+    metadata = {
+        "model_version": model_version,
+        "personality": request.personality,
+        "generation_backend": backend,
+        "selected_mode": request.mode,
+    }
     interaction = repository.create_interaction(request.user_id, request.message, response_text, metadata["model_version"], metadata)
     repository.store_embedding(interaction.id, request.user_id, embedding_preprocessor._hash_embedding(request.message), request.message)
 
@@ -139,7 +155,7 @@ async def stream_chat(request: ChatRequest, _: AuthDep, __: RateDep):
 
     versions = repository.list_model_versions()
     retrieved = retrieval_service.retrieve_successful_examples(request.user_id, request.message)
-    response_text, metadata, iterator = await model_service.stream_response(
+    response_state, metadata, iterator = await model_service.stream_response(
         user_id=request.user_id,
         message=request.message,
         profile=profile,
@@ -147,24 +163,27 @@ async def stream_chat(request: ChatRequest, _: AuthDep, __: RateDep):
         retrieved_examples=retrieved,
         versions=versions,
         personality=request.personality,
+        mode=request.mode,
+        privacy_mode=request.privacy_mode,
+        force_offline=request.force_offline,
     )
 
     async def stream():
         async for item in iterator:
             yield item
-        interaction = repository.create_interaction(request.user_id, request.message, response_text, metadata["model_version"], metadata)
+        final_response = response_state["text"]
+        interaction = repository.create_interaction(request.user_id, request.message, final_response, metadata["model_version"], metadata)
         repository.store_embedding(interaction.id, request.user_id, embedding_preprocessor._hash_embedding(request.message), request.message)
         logger.info(f"[StreamChat] user={request.user_id} personality={request.personality} backend={metadata['generation_backend']}")
         yield json.dumps({
             "type": "done",
             "interaction_id": interaction.id,
-            "response": response_text,
+            "response": final_response,
             "system_label": "Adapting to your preferences",
             "profile": profile.model_dump(),
             "metadata": metadata,
         }) + "\n"
 
-    from fastapi.responses import Response
     return StreamingResponse(
         stream(),
         media_type="application/x-ndjson",

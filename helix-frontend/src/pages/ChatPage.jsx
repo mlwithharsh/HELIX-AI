@@ -13,14 +13,17 @@ import {
   AlertTriangle,
   Wifi,
   WifiOff,
-  Shield
+  Shield,
+  Zap,
+  Cpu,
+  Cloud
 } from 'lucide-react';
+import ModeSelector from '../components/ModeSelector';
 
 const ChatPage = () => {
   const [inputText, setInputText] = useState('');
   const [privacyMode, setPrivacyMode] = useState(false);
-  const [forceOffline, setForceOffline] = useState(false);
-  const { isProcessing, processText, history, profile, submitFeedback, systemLabel, personality, status, isColdStart } = useAI();
+  const { isProcessing, processText, history, profile, submitFeedback, systemLabel, personality, status, isColdStart, mode, setMode } = useAI();
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
 
@@ -39,7 +42,7 @@ const ChatPage = () => {
     const text = inputText;
     setInputText('');
     try {
-      await processText(text, { privacy_mode: privacyMode, force_offline: forceOffline });
+      await processText(text, { privacy_mode: privacyMode });
     } catch (err) {
       console.error('Failed to send text', err);
     }
@@ -114,12 +117,8 @@ const ChatPage = () => {
           </div>
         </div>
         
-        <div className="flex items-center space-x-3">
-          {/* Gateway Status */}
-          <div className="hidden sm:flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-white/50 border border-black/5 text-[9px] font-bold uppercase tracking-widest text-text-muted">
-             <span>{forceOffline || status !== 'online' ? 'Local Edge' : 'Hybrid Cloud'}</span>
-          </div>
-
+          <ModeSelector />
+          
           <button 
              onClick={() => setPrivacyMode(!privacyMode)}
              className={`p-2 rounded-xl border transition-all duration-300 ${privacyMode ? 'bg-[#6d7b68] text-white border-transparent shadow-md' : 'bg-white/70 text-text-muted border-black/5'}`}
@@ -127,17 +126,8 @@ const ChatPage = () => {
           >
              <Shield className="w-4 h-4" />
           </button>
-          
-          <button 
-             onClick={() => setForceOffline(!forceOffline)}
-             className={`p-2 rounded-xl border transition-all duration-300 ${forceOffline ? 'bg-amber-600 text-white border-transparent shadow-md' : 'bg-white/70 text-text-muted border-black/5'}`}
-             title="Force Offline"
-          >
-             <WifiOff className="w-4 h-4" />
-          </button>
 
           <PersonalitySelector />
-        </div>
       </header>
 
       <div className="flex-1 overflow-hidden">
@@ -211,8 +201,22 @@ const ChatPage = () => {
                         </div>
                         
                         {/* Response Bubble */}
-                        <div className="ml-9 px-5 py-3.5 rounded-2xl rounded-tl-md bg-white border border-black/5 text-text-primary shadow-[0_8px_30px_rgba(61,75,63,0.06)]">
+                        <div className="ml-9 px-5 py-3.5 rounded-2xl rounded-tl-md bg-white border border-black/5 text-text-primary shadow-[0_8px_30px_rgba(61,75,63,0.06)] group/response">
                           <p className="text-[14px] leading-[1.7]">{msg.response}</p>
+                          
+                          {/* Performance Metrics (Task 3) */}
+                          {msg.metrics && msg.metrics.tokens_per_sec > 0 && (
+                            <div className="mt-2 pt-2 border-t border-black/5 flex items-center space-x-4">
+                              <div className="flex items-center space-x-1 text-[9px] font-bold text-text-muted uppercase tracking-widest">
+                                <Zap className="w-2.5 h-2.5 text-[#7f9476]" />
+                                <span>{msg.metrics.tokens_per_sec} t/s</span>
+                              </div>
+                              <div className="flex items-center space-x-1 text-[9px] font-bold text-text-muted uppercase tracking-widest">
+                                <Loader2 className="w-2.5 h-2.5 text-[#bda98a]" />
+                                <span>{msg.metrics.latency_sec}s</span>
+                              </div>
+                            </div>
+                          )}
                         </div>
 
                         {/* Feedback */}

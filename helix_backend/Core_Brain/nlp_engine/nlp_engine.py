@@ -53,7 +53,7 @@ class NLPEngine:
         # In a future phase, this would trigger ChromaDB/FAISS lookup
         return None
 
-    def smart_generate_stream(self, messages, max_tokens=2024, temperature=0.7, privacy_mode=False, force_offline=False, personality="Helix"):
+    def smart_generate_stream(self, messages, max_tokens=2024, temperature=0.7, privacy_mode=False, force_offline=False, personality="Helix", mode="auto"):
         """Production streaming generator with Partial Fallback and Adaptive metrics."""
         try:
             from helix_backend.router.router import get_routing_decision
@@ -80,22 +80,32 @@ class NLPEngine:
         if rag_context:
             self.logger.info("Memory Hook: Found relevant context.")
 
-        # 2. Cache Check
-        cached_res = cache_manager.get(user_query, personality)
-        if cached_res:
-            self.metrics["cache_hits"] += 1
-            yield cached_res
-            return
+        # 2. Cache Check (only for auto mode)
+        if mode == "auto":
+            cached_res = cache_manager.get(user_query, personality)
+            if cached_res:
+                self.metrics["cache_hits"] += 1
+                yield cached_res
+                return
 
-        # 3. Routing Decision (Advanced Dict)
-        routing_data = get_routing_decision(user_query, privacy_mode=privacy_mode, force_offline=force_offline)
-        decision = routing_data["route"]
-        tag = routing_data["tag"]
+        # 3. Routing Decision
+        if mode == "edge" or force_offline:
+            decision = "edge"
+            tag = "forced"
+        elif mode == "cloud":
+            decision = "cloud"
+            tag = "forced"
+        else:
+            # auto mode
+            routing_data = get_routing_decision(user_query, privacy_mode=privacy_mode)
+            decision = routing_data["route"]
+            tag = routing_data["tag"]
+            
         self.metrics["routing"][decision] += 1
         
         # --- LOCAL EDGE PATH ---
         if decision == "edge":
-            self.logger.info(f"ROUTING -> LOCAL (EDGE) STREAM [Tag={tag}]")
+            self.logger.info(f"ROUTING -> LOCAL (EDGE) STREAM [Tag={tag}, Mode={mode}]")
             success = False
             full_response = ""
             try:
@@ -110,24 +120,26 @@ class NLPEngine:
                 self.logger.error(f"EDGE primary stream error: {e}")
 
 
-            # If edge failed AND we have permission to use cloud (not privacy/offline)
-            if not success and not privacy_mode and not force_offline:
+            # If edge failed AND we have permission to use cloud (not privacy/offline/forced edge)
+            if not success and not privacy_mode and not force_offline and mode != "edge":
                 self.logger.warning("EDGE Stream failed/unavailable. Automatic Fallback to CLOUD.")
                 for token in self.call_groq_stream(messages, max_tokens, temperature):
                     full_response += token
                     yield token
             
-            if not success and (privacy_mode or force_offline):
-                yield "\n[Helix Status]: Edge AI engine is still cold/waking up on the server. Continuing in cloud mode is recommended until the sidecar is ready."
+            if not success and (privacy_mode or force_offline or mode == "edge"):
+                if not full_response:
+                    yield "\n[Helix Status]: Edge AI engine is currently unavailable or still waking up. Please try again in a moment or switch to Cloud mode."
 
                 
             if full_response:
                 self.metrics["edge_success"] += 1 if success else 0
-                cache_manager.set(user_query, personality, full_response)
+                if mode == "auto":
+                    cache_manager.set(user_query, personality, full_response)
                 
         # --- CLOUD PATH ---
         else:
-            self.logger.info(f"ROUTING -> CLOUD (GROQ) STREAM [Tag={tag}]")
+            self.logger.info(f"ROUTING -> CLOUD (GROQ) STREAM [Tag={tag}, Mode={mode}]")
             success = False
             full_response = ""
             produced_stream_tokens = 0
@@ -141,8 +153,8 @@ class NLPEngine:
             except Exception as e:
                 self.logger.error(f"CLOUD mid-stream failure: {e}")
                 
-            # Partial Fallback Logic: If cloud fails mid-stream or completely
-            if not success or (produced_stream_tokens > 0 and not full_response.endswith(".") and not full_response.endswith("!")):
+            # Partial Fallback Logic: If cloud fails mid-stream or completely (only if auto)
+            if (not success or (produced_stream_tokens > 0 and not full_response.strip().endswith((".", "!", "?")))) and mode == "auto":
                 self.logger.warning("CLOUD path incomplete. Triggering PARTIAL FALLBACK to Edge.")
                 
                 # Append partial response to history to continue
@@ -151,13 +163,18 @@ class NLPEngine:
                     full_response += token
                     yield token
             else:
-                self.metrics["cloud_success"] += 1
-                # Adjust Adaptive Scoring based on Cloud Performance
-                latency = time.time() - start_time
-                from helix_backend.router.router import router as live_router
-
-                live_router.adjust_threshold(latency)
-                cache_manager.set(user_query, personality, full_response)
+                if success:
+                    self.metrics["cloud_success"] += 1
+                    # Adjust Adaptive Scoring based on Cloud Performance
+                    latency = time.time() - start_time
+                    try:
+                        from helix_backend.router.router import router as live_router
+                        live_router.adjust_threshold(latency)
+                    except ImportError:
+                        pass
+                        
+                    if mode == "auto":
+                        cache_manager.set(user_query, personality, full_response)
 
         # Update Metrics (P95 and Ratio)
         latency = time.time() - start_time
@@ -172,11 +189,11 @@ class NLPEngine:
         if total_routes > 0:
             self.metrics["ratio_edge_cloud"] = round(self.metrics["routing"]["edge"] / total_routes, 2)
 
-    def smart_generate(self, messages, max_tokens=200, temperature=0.7, privacy_mode=False, force_offline=False, personality="Helix"):
+    def smart_generate(self, messages, max_tokens=200, temperature=0.7, privacy_mode=False, force_offline=False, personality="Helix", mode="auto"):
         """Blocking version of the hybrid generator."""
         full_text = ""
         # Fix: correctly pass personality to the stream generator
-        for token in self.smart_generate_stream(messages, max_tokens, temperature, privacy_mode, force_offline, personality):
+        for token in self.smart_generate_stream(messages, max_tokens, temperature, privacy_mode, force_offline, personality, mode):
             full_text += token
         return full_text
 

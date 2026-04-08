@@ -46,11 +46,17 @@ load_dotenv(os.path.join(project_root, '.env'))
 app = Flask(__name__)
 app.start_time = time.time()
 CORS(app, resources={r"/api/*": {
-    "origins": ["https://helix-ai-eta.vercel.app", "http://localhost:3000"],
+    "origins": ["https://helix-ai-eta.vercel.app", "http://localhost:3000", "http://localhost:5173"],
     "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     "allow_headers": ["Content-Type", "Authorization", "X-API-Key", "X-API-Token"],
     "supports_credentials": True
 }})
+
+# Multi-user Concurrency & Load Handling (Task 2)
+MAX_CONCURRENT_REQUESTS = 4
+request_semaphore = threading.Semaphore(MAX_CONCURRENT_REQUESTS)
+request_queue_length = 0
+queue_lock = threading.Lock()
 
 
 # Logging configuration
@@ -259,6 +265,7 @@ def submit_feedback():
 # --- API v1 CONTRACTS ---
 
 
+@app.route('/api/status', methods=['GET'])
 @app.route('/api/v1/status', methods=['GET'])
 def get_status():
     """PRODUCTION v1: Status observability."""
@@ -267,13 +274,19 @@ def get_status():
         ram_avail = int(psutil.virtual_memory().available / (1024*1024))
     except:
         ram_avail = 0
+        
+    global request_queue_length
     return jsonify({
         "status": "online",
-        "version": "1.0.0-beta",
+        "version": "1.1.0-prod",
         "provider": "HELIX-HYBRID",
         "network": "online" if is_online else "offline",
         "edge_engine": "warm" if edge_engine.is_loaded else "cold",
         "ram_available_mb": ram_avail,
+        "concurrency": {
+            "max": MAX_CONCURRENT_REQUESTS,
+            "active_queue": request_queue_length
+        },
         "timestamp": datetime.now().isoformat()
     })
 
@@ -317,107 +330,156 @@ def predict_route():
     
     return jsonify({"prediction": "cloud", "action": "none"})
 
+@app.route('/api/chat', methods=['POST'])
 @app.route('/api/v1/chat', methods=['POST'])
 def chat_blocking():
     """PRODUCTION v1: Standard chat endpoint."""
+    global request_queue_length
+    with queue_lock:
+        request_queue_length += 1
+    
+    # Backpressure Handling (Task 2)
+    if request_queue_length > 10:
+        with queue_lock:
+            request_queue_length -= 1
+        return jsonify({"error": "Server too busy (Queue limit reached)"}), 503
+
+    with request_semaphore:
+        data = request.json
+        user_id = data.get('user_id', 'guest')
+        user_text = sanitize_input(data.get('message', '') or data.get('text', ''))
+        mode = data.get('mode', 'auto') # auto | edge | cloud
+        
+        if not user_text:
+            with queue_lock:
+                request_queue_length -= 1
+            return jsonify({"error": "Message content required"}), 400
+            
+        if not check_rate_limit(user_id):
+            with queue_lock:
+                request_queue_length -= 1
+            return jsonify({"error": "Rate limit exceeded"}), 429
+
+        logger.info(f"Chat request starting [{mode}]: user={user_id}")
+        start_time = time.time()
+        
+        # Extract settings
+        personality = data.get('personality', 'Helix').lower()
+        privacy_mode = data.get('privacy_mode', False)
+        force_offline = (mode == "edge") or data.get('force_offline', False)
+        
+        # Process through Hybrid Engine
+        # Analysis for routing if mode is auto
+        messages = [{"role": "user", "content": user_text}]
+        
+        response_text = nlp_engine.smart_generate(
+            messages, 
+            privacy_mode=privacy_mode or (mode == "edge"), 
+            force_offline=force_offline,
+            personality=personality,
+            mode=mode
+        )
+        
+        latency = time.time() - start_time
+        logger.info(f"Chat completed: latency={latency:.2f}s")
+        
+        # Persistent Record
+        if repository:
+            repository.create_interaction(
+                user_id, user_text, response_text, 
+                "1.1.0-prod", # version
+                {"latency": f"{latency:.2f}s", "mode": mode}
+            )
+        
+        with queue_lock:
+            request_queue_length -= 1
+            
+        return jsonify({
+            "interaction_id": f"int-{int(time.time())}",
+            "response": response_text,
+            "metadata": {
+                "latency": f"{latency:.2f}s",
+                "mode": mode,
+                "engine": "edge" if force_offline else "hybrid"
+            }
+        })
+
+
+@app.route('/api/chat/stream', methods=['POST'])
+@app.route('/api/v1/chat/stream', methods=['POST'])
+def chat_streaming():
+    """PRODUCTION v1: SSE Streaming Endpoint with Performance Metrics."""
+    global request_queue_length
+    with queue_lock:
+        request_queue_length += 1
+        
+    if request_queue_length > 10:
+        with queue_lock:
+            request_queue_length -= 1
+        return jsonify({"error": "Server too busy (Queue limit reached)"}), 503
+
     data = request.json
     user_id = data.get('user_id', 'guest')
     user_text = sanitize_input(data.get('message', '') or data.get('text', ''))
     
     if not user_text:
-        return jsonify({"error": "Message content required"}), 400
-        
-    if not check_rate_limit(user_id):
-        return jsonify({"error": "Rate limit exceeded"}), 429
-
-    logger.info(f"Chat request starting: user={user_id}")
-    start_time = time.time()
-    
-    # Extract settings
-    personality = data.get('personality', 'Helix').lower()
-    privacy_mode = data.get('privacy_mode', False)
-    force_offline = data.get('force_offline', False)
-    
-    # Process through Hybrid Engine
-    analysis = nlp_engine.get_analysis(user_text)
-    messages = [{"role": "user", "content": user_text}] # Simplified
-    
-    response_text = nlp_engine.smart_generate(
-        messages, 
-        privacy_mode=privacy_mode, 
-        force_offline=force_offline,
-        personality=personality
-    )
-    
-    latency = time.time() - start_time
-    logger.info(f"Chat completed: latency={latency:.2f}s")
-    
-    # Persistent Record
-    if repository:
-        repository.create_interaction(
-            user_id, user_text, response_text, 
-            "1.0.0-beta", # version
-            {"latency": f"{latency:.2f}s", "model": "edge" if force_offline or privacy_mode else "hybrid"}
-        )
-    
-    return jsonify({
-        "interaction_id": f"int-{int(time.time())}",
-        "response": response_text,
-        "metadata": {
-            "latency": f"{latency:.2f}s",
-            "model_path": "edge" if force_offline or privacy_mode else "hybrid"
-        }
-    })
-
-
-@app.route('/api/v1/chat/stream', methods=['POST'])
-def chat_streaming():
-    """PRODUCTION v1: SSE Streaming Endpoint with JSON Fallback."""
-    data = request.json
-    user_id = data.get('user_id', 'guest')
-    user_text = sanitize_input(data.get('message', ''))
-    
-    if not user_text:
+        with queue_lock:
+            request_queue_length -= 1
         return jsonify({"error": "Message content required"}), 400
 
+    mode = data.get('mode', 'auto')
     personality = data.get('personality', 'Helix').lower()
     privacy_mode = data.get('privacy_mode', False)
-    force_offline = data.get('force_offline', False)
-
-    # SECURE STREAM: Removed JSON fallback for /stream endpoint to ensure 
-    # frontend reader always receives decodable SSE data.
-
+    force_offline = (mode == "edge") or data.get('force_offline', False)
 
     def generate():
-        logger.info(f"SSE Stream starting: user={user_id}")
-        messages = [{"role": "user", "content": user_text}]
-        full_response = ""
-        
-        try:
-            for token in nlp_engine.smart_generate_stream(
-                messages,
-                privacy_mode=privacy_mode,
-                force_offline=force_offline,
-                personality=personality
-            ):
-                full_response += token
-                payload = json.dumps({"token": token})
-                yield f"data: {payload}\n\n"
+        global request_queue_length
+        with request_semaphore:
+            logger.info(f"SSE Stream starting [{mode}]: user={user_id}")
+            messages = [{"role": "user", "content": user_text}]
+            full_response = ""
+            start_streaming_time = time.time()
+            token_count = 0
             
-            # Persistent Record at End of Stream
-            if repository and full_response:
-                repository.create_interaction(
-                    user_id, user_text, full_response, 
-                    "1.0.0-beta", 
-                    {"mode": "stream", "model": "hybrid"}
-                )
-        except Exception as e:
-            import traceback
-            logger.error(f"Stream error Traceback: {traceback.format_exc()}")
-            yield f"data: {json.dumps({'error': str(e)})}\n\n"
-
-        
-        yield "data: [DONE]\n\n"
+            try:
+                for token in nlp_engine.smart_generate_stream(
+                    messages,
+                    privacy_mode=privacy_mode or (mode == "edge"),
+                    force_offline=force_offline,
+                    personality=personality,
+                    mode=mode
+                ):
+                    token_count += 1
+                    full_response += token
+                    
+                    elapsed = time.time() - start_streaming_time
+                    tokens_per_sec = token_count / elapsed if elapsed > 0 else 0
+                    
+                    payload = json.dumps({
+                        "token": token,
+                        "metrics": {
+                            "tokens_per_sec": round(tokens_per_sec, 2),
+                            "latency_sec": round(elapsed, 2)
+                        }
+                    })
+                    yield f"data: {payload}\n\n"
+                
+                # Persistent Record at End of Stream
+                if repository and full_response:
+                    repository.create_interaction(
+                        user_id, user_text, full_response, 
+                        "1.1.0-prod", 
+                        {"mode": "stream", "engine": mode}
+                    )
+            except Exception as e:
+                import traceback
+                logger.error(f"Stream error Traceback: {traceback.format_exc()}")
+                yield f"data: {json.dumps({'error': str(e)})}\n\n"
+            finally:
+                with queue_lock:
+                    request_queue_length -= 1
+            
+            yield "data: [DONE]\n\n"
 
     return Response(stream_with_context(generate()), mimetype='text/event-stream')
 
@@ -426,8 +488,9 @@ def chat_streaming():
 def handle_404(e):
     path = request.path
     if path.startswith("/api/") and not path.startswith("/api/v1/"):
-        new_path = path.replace("/api/", "/api/v1/", 1)
-        return redirect(new_path, code=307)
+        # Since we added aliases, this might not be needed as much,
+        # but kept for compatibility.
+        pass
     return jsonify({"error": "Path not found", "path": path}), 404
 
 if __name__ == '__main__':

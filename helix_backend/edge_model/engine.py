@@ -45,8 +45,9 @@ class EdgeEngine:
         self.is_loaded = False
         self.is_downloading = False
         self.last_used = 0
-        self.idle_timeout = 300 
+        self.idle_timeout = int(os.getenv("HELIX_EDGE_IDLE_TIMEOUT_SECONDS", "1800"))
         self._lock = threading.Lock()
+        self._idle_thread_started = False
 
     def _ensure_model_exists(self) -> bool:
         """Self-healing: Download model if missing on Render."""
@@ -80,9 +81,7 @@ class EdgeEngine:
                 self.is_downloading = False
                 return False
 
-        
-        # Lifecycle monitor
-        threading.Thread(target=self._idle_monitor, daemon=True).start()
+        return False
 
     def _idle_monitor(self):
         while True:
@@ -157,6 +156,9 @@ class EdgeEngine:
                     if res.status_code == 200:
                         self.is_loaded = True
                         self.last_used = time.time()
+                        if not self._idle_thread_started:
+                            threading.Thread(target=self._idle_monitor, daemon=True).start()
+                            self._idle_thread_started = True
                         self.logger.info("Lifecycle: Sidecar READY.")
                         return True
                 except:

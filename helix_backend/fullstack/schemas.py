@@ -20,6 +20,9 @@ class ChatRequest(BaseModel):
     message: str
     history: list[dict[str, str]] = Field(default_factory=list)
     personality: str = "helix"
+    mode: Literal["auto", "edge", "cloud"] = "auto"
+    privacy_mode: bool = False
+    force_offline: bool = False
 
 
 class FeedbackRequest(BaseModel):

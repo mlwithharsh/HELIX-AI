@@ -8,6 +8,8 @@ class RetrievalService:
         self.repository = repository
 
     def retrieve_successful_examples(self, user_id: str, query: str, top_k: int = 3) -> list[str]:
+        if len(query.strip()) < 12:
+            return []
         candidates = self.repository.fetch_embeddings(user_id)
         if not candidates:
             return []
