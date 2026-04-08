@@ -15,6 +15,7 @@ from .schemas import (
     BrandProfileResponse,
     CampaignResponse,
     CampaignVariantResponse,
+    ChannelCredentialResponse,
     CreateBrandProfileRequest,
     CreateCampaignRequest,
     DeliveryLogResponse,
@@ -726,3 +727,99 @@ class LocalMarketingRepository:
             if len(hints) >= limit:
                 break
         return hints
+
+    def upsert_channel_credential(
+        self,
+        *,
+        platform: str,
+        account_label: str,
+        encrypted_secret_blob: str,
+    ) -> ChannelCredentialResponse:
+        now = utc_now_iso()
+        with self._connect() as conn:
+            existing = conn.execute(
+                """
+                SELECT id, created_at
+                FROM channel_credentials
+                WHERE platform = ? AND account_label = ?
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                (platform, account_label),
+            ).fetchone()
+            record_id = existing["id"] if existing else str(uuid4())
+            created_at = existing["created_at"] if existing else now
+            conn.execute(
+                """
+                INSERT INTO channel_credentials (id, platform, account_label, encrypted_secret_blob, created_at)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    platform = excluded.platform,
+                    account_label = excluded.account_label,
+                    encrypted_secret_blob = excluded.encrypted_secret_blob
+                """,
+                (record_id, platform, account_label, encrypted_secret_blob, created_at),
+            )
+        return self.get_channel_credential(platform=platform, account_label=account_label)
+
+    def get_channel_credential(self, *, platform: str, account_label: str = "default") -> ChannelCredentialResponse | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT id, platform, account_label, encrypted_secret_blob, created_at
+                FROM channel_credentials
+                WHERE platform = ? AND account_label = ?
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                (platform, account_label),
+            ).fetchone()
+        if not row:
+            return None
+        payload = self._decode_json(row["encrypted_secret_blob"], {})
+        configured_fields = payload.get("configured_fields", []) if isinstance(payload, dict) else []
+        return ChannelCredentialResponse(
+            id=row["id"],
+            platform=row["platform"],
+            account_label=row["account_label"],
+            configured_fields=configured_fields,
+            created_at=row["created_at"],
+        )
+
+    def get_channel_credential_blob(self, *, platform: str, account_label: str = "default") -> str | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT encrypted_secret_blob
+                FROM channel_credentials
+                WHERE platform = ? AND account_label = ?
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                (platform, account_label),
+            ).fetchone()
+        return row["encrypted_secret_blob"] if row else None
+
+    def list_channel_credentials(self) -> list[ChannelCredentialResponse]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT id, platform, account_label, encrypted_secret_blob, created_at
+                FROM channel_credentials
+                ORDER BY platform ASC, account_label ASC
+                """
+            ).fetchall()
+        results: list[ChannelCredentialResponse] = []
+        for row in rows:
+            payload = self._decode_json(row["encrypted_secret_blob"], {})
+            configured_fields = payload.get("configured_fields", []) if isinstance(payload, dict) else []
+            results.append(
+                ChannelCredentialResponse(
+                    id=row["id"],
+                    platform=row["platform"],
+                    account_label=row["account_label"],
+                    configured_fields=configured_fields,
+                    created_at=row["created_at"],
+                )
+            )
+        return results

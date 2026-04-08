@@ -26,12 +26,14 @@ from .marketing import MarketingApprovalService, MarketingSafetyService, Marketi
 from .marketing import MarketingDeliveryService
 from .marketing import MarketingAnalyticsService
 from .marketing import MarketingOptimizationService
+from .marketing import MarketingCredentialService
 from .marketing.schemas import (
     ApprovalResultResponse,
     AnalyticsSummaryResponse,
     ApproveVariantRequest,
     BrandProfileResponse,
     CampaignResponse,
+    ChannelCredentialResponse,
     CreateBrandProfileRequest,
     CreateCampaignRequest,
     DeliveryLogResponse,
@@ -47,6 +49,7 @@ from .marketing.schemas import (
     ScheduledJobResponse,
     StrategyRequest,
     StrategyResponse,
+    UpsertChannelCredentialRequest,
     UpdateBrandProfileRequest,
 )
 
@@ -59,6 +62,7 @@ retrieval_service = RetrievalService(repository)
 training_service = OfflineRLHFService(repository, model_service, settings.adapter_root)
 embedding_preprocessor = StatePreprocessor()
 marketing_repository = LocalMarketingRepository(settings)
+marketing_credential_service = MarketingCredentialService(marketing_repository, settings)
 marketing_strategy_service = MarketingStrategyService()
 marketing_prompt_engine = MarketingPromptEngine()
 marketing_campaign_service = MarketingCampaignService(
@@ -69,7 +73,7 @@ marketing_campaign_service = MarketingCampaignService(
 marketing_safety_service = MarketingSafetyService(marketing_repository)
 marketing_approval_service = MarketingApprovalService(marketing_repository, marketing_safety_service)
 marketing_scheduler_service = MarketingSchedulerService(marketing_repository)
-marketing_delivery_service = MarketingDeliveryService(marketing_repository, settings)
+marketing_delivery_service = MarketingDeliveryService(marketing_repository, settings, marketing_credential_service)
 marketing_analytics_service = MarketingAnalyticsService(marketing_repository)
 marketing_optimization_service = MarketingOptimizationService(marketing_repository, marketing_analytics_service)
 
@@ -275,6 +279,20 @@ async def list_delivery_logs(_: AuthDep, __: RateDep, platform: str | None = Non
 @app.get("/api/marketing/platform-health", response_model=list[PlatformAdapterStatusResponse])
 async def get_platform_health(_: AuthDep, __: RateDep) -> list[PlatformAdapterStatusResponse]:
     return marketing_delivery_service.platform_statuses()
+
+
+@app.get("/api/marketing/channel-credentials", response_model=list[ChannelCredentialResponse])
+async def list_channel_credentials(_: AuthDep, __: RateDep) -> list[ChannelCredentialResponse]:
+    return marketing_credential_service.list_credentials()
+
+
+@app.post("/api/marketing/channel-credentials", response_model=ChannelCredentialResponse)
+async def upsert_channel_credentials(
+    payload: UpsertChannelCredentialRequest,
+    _: AuthDep,
+    __: RateDep,
+) -> ChannelCredentialResponse:
+    return marketing_credential_service.save(payload)
 
 
 @app.post("/api/marketing/performance-events", response_model=PerformanceEventResponse)

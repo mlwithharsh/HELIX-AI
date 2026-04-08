@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 
 from .adapters import DiscordAdapter, LinkedInAdapter, RedditAdapter, TelegramAdapter, WebhookAdapter, XAdapter
+from .credential_service import MarketingCredentialService
 from .repository import LocalMarketingRepository
 from .schemas import DeliveryLogResponse, PlatformAdapterStatusResponse
 from ..config import Settings
@@ -18,17 +19,18 @@ except Exception:  # pragma: no cover
 class MarketingDeliveryService:
     """Executes queued jobs through platform adapters and records delivery logs."""
 
-    def __init__(self, repository: LocalMarketingRepository, settings: Settings):
+    def __init__(self, repository: LocalMarketingRepository, settings: Settings, credential_service: MarketingCredentialService | None = None):
         self.repository = repository
         self.settings = settings
+        self.credential_service = credential_service
         self.scheduler = None
-        self.adapters = {
-            "discord": DiscordAdapter(settings),
-            "linkedin": LinkedInAdapter(settings),
-            "reddit": RedditAdapter(settings),
-            "telegram": TelegramAdapter(settings),
-            "webhook": WebhookAdapter(settings),
-            "x": XAdapter(settings),
+        self.adapter_classes = {
+            "discord": DiscordAdapter,
+            "linkedin": LinkedInAdapter,
+            "reddit": RedditAdapter,
+            "telegram": TelegramAdapter,
+            "webhook": WebhookAdapter,
+            "x": XAdapter,
         }
 
     def start(self) -> None:
@@ -55,7 +57,8 @@ class MarketingDeliveryService:
 
     def platform_statuses(self) -> list[PlatformAdapterStatusResponse]:
         statuses: list[PlatformAdapterStatusResponse] = []
-        for platform, adapter in sorted(self.adapters.items()):
+        for platform in sorted(self.adapter_classes):
+            adapter = self._build_adapter(platform)
             valid, message = adapter.validate_credentials()
             statuses.append(
                 PlatformAdapterStatusResponse(
@@ -75,10 +78,11 @@ class MarketingDeliveryService:
         if not variant:
             self.repository.update_scheduled_job_status(job_id, "failed", "Variant not found")
             return None
-        adapter = self.adapters.get(job.platform.lower())
-        if not adapter:
+        platform = job.platform.lower()
+        if platform not in self.adapter_classes:
             self.repository.update_scheduled_job_status(job_id, "failed", f"No adapter configured for {job.platform}")
             return None
+        adapter = self._build_adapter(platform)
         if execution_mode == "live":
             valid, message = adapter.validate_credentials()
             if not valid:
@@ -128,3 +132,8 @@ class MarketingDeliveryService:
             external_post_id="",
             execution_mode=execution_mode,
         )
+
+    def _build_adapter(self, platform: str):
+        adapter_cls = self.adapter_classes[platform]
+        settings = self.credential_service.resolve_platform_settings(platform) if self.credential_service else self.settings
+        return adapter_cls(settings)

@@ -69,6 +69,15 @@ const platformEnvHints = {
   x: ['HELIX_X_ACCESS_TOKEN'],
 };
 
+const platformCredentialFields = {
+  discord: ['discord_webhook_url', 'discord_bot_token', 'discord_channel_id'],
+  linkedin: ['linkedin_access_token', 'linkedin_author_urn'],
+  reddit: ['reddit_client_id', 'reddit_client_secret', 'reddit_username', 'reddit_password', 'reddit_default_subreddit'],
+  telegram: ['telegram_bot_token', 'telegram_chat_id'],
+  webhook: ['marketing_webhook_url'],
+  x: ['x_access_token'],
+};
+
 const AgentPage = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -78,6 +87,7 @@ const AgentPage = () => {
   const [schedules, setSchedules] = useState([]);
   const [logs, setLogs] = useState([]);
   const [platformHealth, setPlatformHealth] = useState([]);
+  const [channelCredentials, setChannelCredentials] = useState([]);
   const [analytics, setAnalytics] = useState(null);
   const [optimization, setOptimization] = useState(null);
   const [strategy, setStrategy] = useState(null);
@@ -90,6 +100,9 @@ const AgentPage = () => {
   const [selectedBrandId, setSelectedBrandId] = useState('');
   const [selectedCampaignId, setSelectedCampaignId] = useState('');
   const [selectedVariantIds, setSelectedVariantIds] = useState([]);
+  const [credentialPlatform, setCredentialPlatform] = useState('x');
+  const [credentialAccountLabel, setCredentialAccountLabel] = useState('default');
+  const [credentialValues, setCredentialValues] = useState({});
   const [scheduleAt, setScheduleAt] = useState(() => {
     const next = new Date(Date.now() + 60 * 60 * 1000);
     return next.toISOString().slice(0, 16);
@@ -158,13 +171,14 @@ const AgentPage = () => {
   async function loadDashboard() {
     setLoading(true);
     try {
-      const [brandRes, campaignRes, scheduleRes, logRes, analyticsRes, healthRes] = await Promise.all([
+      const [brandRes, campaignRes, scheduleRes, logRes, analyticsRes, healthRes, credentialRes] = await Promise.all([
         marketingAPI.listBrandProfiles(),
         marketingAPI.listCampaigns(),
         marketingAPI.listSchedules(),
         marketingAPI.listDeliveryLogs(),
         marketingAPI.getAnalyticsSummary(),
         marketingAPI.getPlatformHealth(),
+        marketingAPI.listChannelCredentials(),
       ]);
       startTransition(() => {
         setBrands(brandRes.data || []);
@@ -172,6 +186,7 @@ const AgentPage = () => {
         setSchedules(scheduleRes.data || []);
         setLogs(logRes.data || []);
         setPlatformHealth(healthRes.data || []);
+        setChannelCredentials(credentialRes.data || []);
         setAnalytics(analyticsRes.data || null);
       });
       if (!selectedBrandId && brandRes.data?.[0]) {
@@ -415,6 +430,40 @@ const AgentPage = () => {
     setSchedules(response.data || []);
   }
 
+  async function handleCredentialSave(event) {
+    event.preventDefault();
+    const allowedFields = platformCredentialFields[credentialPlatform] || [];
+    const secrets = Object.fromEntries(
+      allowedFields
+        .map((field) => [field, credentialValues[field]?.trim() || ''])
+        .filter(([, value]) => value),
+    );
+    if (!Object.keys(secrets).length) {
+      toast.error('Enter at least one credential value');
+      return;
+    }
+    try {
+      const response = await marketingAPI.saveChannelCredentials({
+        platform: credentialPlatform,
+        account_label: credentialAccountLabel.trim() || 'default',
+        secrets,
+      });
+      const saved = response.data;
+      setChannelCredentials((current) => {
+        const exists = current.some((item) => item.platform === saved.platform && item.account_label === saved.account_label);
+        return exists
+          ? current.map((item) => (item.platform === saved.platform && item.account_label === saved.account_label ? saved : item))
+          : [...current, saved];
+      });
+      setCredentialValues({});
+      toast.success('Credentials saved locally');
+      const healthRes = await marketingAPI.getPlatformHealth();
+      setPlatformHealth(healthRes.data || []);
+    } catch (error) {
+      toast.error(readError(error, 'Failed to save credentials'));
+    }
+  }
+
   function updateField(setter, key, value) {
     setter((current) => ({ ...current, [key]: value }));
   }
@@ -443,6 +492,10 @@ const AgentPage = () => {
     setSelectedVariantIds((current) =>
       current.includes(variantId) ? current.filter((item) => item !== variantId) : [...current, variantId],
     );
+  }
+
+  function updateCredentialField(field, value) {
+    setCredentialValues((current) => ({ ...current, [field]: value }));
   }
 
   return (
@@ -786,6 +839,54 @@ const AgentPage = () => {
                           </div>
                         );
                       })}
+                    </div>
+                    <form onSubmit={handleCredentialSave} className="mt-4 rounded-2xl border border-black/5 bg-[rgba(255,252,247,0.76)] p-4 space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold uppercase tracking-[0.18em] text-text-muted">Platform</label>
+                          <select
+                            value={credentialPlatform}
+                            onChange={(event) => {
+                              setCredentialPlatform(event.target.value);
+                              setCredentialValues({});
+                            }}
+                            className="input-solace !px-4 !py-3"
+                          >
+                            {Object.keys(platformCredentialFields).map((platform) => (
+                              <option key={platform} value={platform}>{platform}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <Input label="Account Label" value={credentialAccountLabel} onChange={setCredentialAccountLabel} />
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {(platformCredentialFields[credentialPlatform] || []).map((field) => (
+                          <Input
+                            key={field}
+                            label={field}
+                            value={credentialValues[field] || ''}
+                            onChange={(value) => updateCredentialField(field, value)}
+                          />
+                        ))}
+                      </div>
+                      <div className="flex justify-end">
+                        <button type="submit" className="btn-solace-primary !py-3 !px-5 text-sm">Save Local Credentials</button>
+                      </div>
+                    </form>
+                    <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {channelCredentials.map((item) => (
+                        <div key={`${item.platform}-${item.account_label}`} className="rounded-2xl border border-black/5 bg-white/75 px-4 py-4">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="text-sm font-semibold text-text-primary">{item.platform}</div>
+                            <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-text-muted">{item.account_label}</span>
+                          </div>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {(item.configured_fields || []).map((field) => (
+                              <Tag key={`${item.platform}-${field}`}>{field}</Tag>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </SubPanel>
 

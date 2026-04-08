@@ -9,9 +9,10 @@ from helix_backend.fullstack.marketing.adapters.discord import DiscordAdapter
 from helix_backend.fullstack.marketing.adapters.linkedin import LinkedInAdapter
 from helix_backend.fullstack.marketing.adapters.reddit import RedditAdapter
 from helix_backend.fullstack.marketing.adapters.x import XAdapter
+from helix_backend.fullstack.marketing.credential_service import MarketingCredentialService
 from helix_backend.fullstack.marketing.delivery_service import MarketingDeliveryService
 from helix_backend.fullstack.marketing.repository import LocalMarketingRepository
-from helix_backend.fullstack.marketing.schemas import CreateCampaignRequest
+from helix_backend.fullstack.marketing.schemas import CreateCampaignRequest, UpsertChannelCredentialRequest
 
 
 def build_settings(**updates) -> Settings:
@@ -74,7 +75,8 @@ class MarketingDeliveryServiceTests(unittest.TestCase):
     def setUp(self):
         self.settings = build_settings(marketing_db_path="memory/test_marketing_adapters.db")
         self.repository = LocalMarketingRepository(self.settings)
-        self.service = MarketingDeliveryService(self.repository, self.settings)
+        self.credential_service = MarketingCredentialService(self.repository, self.settings)
+        self.service = MarketingDeliveryService(self.repository, self.settings, self.credential_service)
         self.campaign = self.repository.create_campaign(
             CreateCampaignRequest(name="Adapter Test", goal="Validate dispatch", target_audience="operators")
         )
@@ -106,6 +108,22 @@ class MarketingDeliveryServiceTests(unittest.TestCase):
         for platform in ["x", "linkedin", "discord", "reddit", "telegram", "webhook"]:
             self.assertIn(platform, statuses)
         self.assertFalse(statuses["x"].configured)
+
+    def test_saved_credentials_make_platform_live_ready(self):
+        saved = self.credential_service.save(
+            UpsertChannelCredentialRequest(
+                platform="x",
+                account_label="default",
+                secrets={"x_access_token": "secret-token"},
+            )
+        )
+        self.assertEqual(saved.configured_fields, ["x_access_token"])
+
+        resolved = self.credential_service.resolve_platform_settings("x")
+        self.assertEqual(resolved.x_access_token, "secret-token")
+
+        statuses = {item.platform: item for item in self.service.platform_statuses()}
+        self.assertTrue(statuses["x"].configured)
 
     def test_dry_run_dispatch_supports_new_platforms(self):
         for platform in ["x", "linkedin", "discord", "reddit"]:
