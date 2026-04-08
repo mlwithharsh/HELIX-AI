@@ -308,6 +308,10 @@ class NLPEngine:
             return "get_weather"
         if any(token in lowered for token in ["help", "please", "can you", "could you"]):
             return "request"
+        if any(token in lowered for token in ["hot", "sexy", "cute", "babe", "sweetie", "love", "kiss"]):
+            return "flirty"
+        if any(token in lowered for token in ["joke", "fun", "play", "game", "laugh"]):
+            return "playful"
         if any(token in lowered for token in ["sad", "anxious", "stress", "lonely", "upset"]):
             return "emotional_support"
         if "?" in lowered:
@@ -359,7 +363,7 @@ class NLPEngine:
         messages = [
             {
                 "role": "system",
-                "content": "You are an intent detector. Respond with one word only: 'greeting', 'question', 'request', 'get_weather', 'emotional_support', 'manipulation_check', or 'unknown'.",
+                "content": "You are an intent detector. Respond with one word only: 'greeting', 'question', 'request', 'get_weather', 'emotional_support', 'flirty', 'playful', 'manipulation_check', or 'unknown'.",
             },
             {"role": "user", "content": user_input},
         ]
@@ -368,7 +372,7 @@ class NLPEngine:
         if result.startswith("[groq error]"):
             return self._keyword_intent_fallback(user_input)
 
-        valid_intents = ["greeting", "question", "request", "get_weather", "emotional_support", "manipulation_check", "unknown"]
+        valid_intents = ["greeting", "question", "request", "get_weather", "emotional_support", "flirty", "playful", "manipulation_check", "unknown"]
         return result if result in valid_intents else "unknown"
 
     def detect_emotion(self, user_input: str) -> dict:

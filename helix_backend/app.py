@@ -168,6 +168,7 @@ def model_to_dict(obj):
     return obj
 
 # --- AUTHENTICATION v1 ---
+@app.route('/api/auth/signup', methods=['POST'])
 @app.route('/api/v1/auth/signup', methods=['POST'])
 def auth_signup():
 
@@ -180,6 +181,7 @@ def auth_signup():
     if error: return jsonify({"error": error}), 400
     return jsonify({"user_id": user_id, "message": "Success"})
 
+@app.route('/api/auth/login', methods=['POST'])
 @app.route('/api/v1/auth/login', methods=['POST'])
 def auth_login():
 
@@ -191,6 +193,7 @@ def auth_login():
     if error: return jsonify({"error": error}), 401
     return jsonify({"user_id": user_id, "message": "Login Success"})
 
+@app.route('/api/users/<user_id>/profile', methods=['GET', 'PUT'])
 @app.route('/api/v1/users/<user_id>/profile', methods=['GET', 'PUT'])
 def user_profile(user_id):
 
@@ -209,8 +212,8 @@ def user_profile(user_id):
         except Exception as e:
             return jsonify({"error": str(e)}), 400
 
+@app.route('/api/users/<user_id>/history', methods=['GET'])
 @app.route('/api/v1/users/<user_id>/history', methods=['GET'])
-
 def user_history(user_id):
     if not repository: return jsonify({"error": "DB Unavailable"}), 503
     records = repository.list_recent_interactions(user_id)
@@ -355,20 +358,25 @@ def chat_blocking():
         start_time = time.time()
         
         # Extract settings
-        personality = data.get('personality', 'Helix').lower()
+        personality_label = data.get('personality', 'Helix').lower()
         privacy_mode = data.get('privacy_mode', False)
         force_offline = (mode == "edge") or data.get('force_offline', False)
         
-        # Process through Hybrid Engine
-        # Analysis for routing if mode is auto
-        messages = [{"role": "user", "content": user_text}]
+        # Analysis for routing and tuning
+        analysis = nlp_engine.get_analysis(user_text)
         
-        response_text = nlp_engine.smart_generate(
-            messages, 
-            privacy_mode=privacy_mode or (mode == "edge"), 
-            force_offline=force_offline,
-            personality=personality,
-            mode=mode
+        # Adaptive Context Preparation
+        adaptive_context = adaptive_orchestrator.prepare(user_text, analysis)
+        adaptive_context.update({
+            "privacy_mode": privacy_mode,
+            "force_offline": force_offline,
+            "mode": mode
+        })
+
+        # Route to Personality
+        personality_router.set_personality(personality_label)
+        response_text = personality_router.get_response(
+            user_text, memory_manager, analysis, adaptive_context
         )
         
         latency = time.time() - start_time
@@ -427,18 +435,27 @@ def chat_streaming():
         global request_queue_length
         with request_semaphore:
             logger.info(f"SSE Stream starting [{mode}]: user={user_id}")
-            messages = [{"role": "user", "content": user_text}]
+            # Analysis for routing and tuning
+            analysis = nlp_engine.get_analysis(user_text)
+            
+            # Adaptive Context Preparation
+            adaptive_context = adaptive_orchestrator.prepare(user_text, analysis)
+            adaptive_context.update({
+                "privacy_mode": privacy_mode,
+                "force_offline": force_offline,
+                "mode": mode
+            })
+
+            # Route to Personality
+            personality_router.set_personality(personality)
+            
             full_response = ""
             start_streaming_time = time.time()
             token_count = 0
             
             try:
-                for token in nlp_engine.smart_generate_stream(
-                    messages,
-                    privacy_mode=privacy_mode or (mode == "edge"),
-                    force_offline=force_offline,
-                    personality=personality,
-                    mode=mode
+                for token in personality_router.get_response_stream(
+                    user_text, memory_manager, analysis, adaptive_context
                 ):
                     token_count += 1
                     full_response += token

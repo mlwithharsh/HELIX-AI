@@ -14,7 +14,7 @@ const ChatApp = () => (
     <AIProvider>
       <div className="min-h-screen flex flex-col">
         <Navbar />
-        <main className="flex-1">
+        <main className="flex-1 pt-20">
           <ChatPage />
         </main>
         <Toaster position="bottom-right" />

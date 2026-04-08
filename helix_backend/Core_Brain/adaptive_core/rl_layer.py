@@ -5,6 +5,8 @@ class ReinforcementLearningLayer:
             "direct": 0.5,
             "curious": 0.45,
             "celebratory": 0.45,
+            "provocative": 0.40,
+            "playful": 0.40,
         }
         self.learning_rate = 0.2
         self.last_policy = "supportive"
@@ -21,6 +23,10 @@ class ReinforcementLearningLayer:
             policy = "celebratory"
         elif curiosity > 0.6 or intent == "question":
             policy = "curious"
+        elif intent == "flirty": # New intent for Suzi
+            policy = "provocative"
+        elif intent == "playful": # New intent for Helix
+            policy = "playful"
         else:
             policy = max(self.q_values, key=self.q_values.get)
 
@@ -43,6 +49,10 @@ class ReinforcementLearningLayer:
 
         if (analysis or {}).get("intent") not in {"unknown", None, ""}:
             reward += 0.1
+            
+        # Specific rewards for new personality behaviors
+        if (analysis or {}).get("intent") in {"flirty", "playful"}:
+            reward += 0.15 # Higher reward for engaging with these new traits
 
         return max(-1.0, min(1.0, round(reward, 3)))
 

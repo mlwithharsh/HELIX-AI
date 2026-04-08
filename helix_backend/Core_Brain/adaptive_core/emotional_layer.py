@@ -22,7 +22,7 @@ class EmotionalIntelligenceLayer:
             base_vector[1] = min(1.0, base_vector[1] + 0.15)
         if any(token in lowered for token in ["help", "urgent", "stuck", "anxious", "stress"]):
             base_vector[2] = min(1.0, base_vector[2] + 0.2)
-        if any(token in lowered for token in ["wow", "great", "excited", "awesome"]):
+        if any(token in lowered for token in ["wow", "great", "excited", "awesome", "fun", "play", "sexy", "hot", "cute"]):
             base_vector[3] = min(1.0, base_vector[3] + 0.2)
         if sentiment == "negative":
             base_vector[4] = min(1.0, base_vector[4] + 0.15)
