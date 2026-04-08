@@ -11,12 +11,14 @@ from uuid import uuid4
 from ..config import Settings
 from .models import DDL_STATEMENTS, INDEX_STATEMENTS, utc_now_iso
 from .schemas import (
+    AnalyticsSummaryResponse,
     BrandProfileResponse,
     CampaignResponse,
     CampaignVariantResponse,
     CreateBrandProfileRequest,
     CreateCampaignRequest,
     DeliveryLogResponse,
+    PerformanceEventResponse,
     ScheduledJobResponse,
     UpdateCampaignRequest,
     UpdateBrandProfileRequest,
@@ -634,3 +636,85 @@ class LocalMarketingRepository:
             )
             for row in rows
         ]
+
+    def create_performance_event(
+        self,
+        *,
+        campaign_id: str,
+        variant_id: str | None,
+        platform: str,
+        metric_type: str,
+        metric_value: float,
+        source: str,
+        note: str,
+    ) -> PerformanceEventResponse:
+        record_id = str(uuid4())
+        created_at = utc_now_iso()
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO performance_events (
+                    id, campaign_id, variant_id, platform, metric_type, metric_value, source, note, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (record_id, campaign_id, variant_id, platform, metric_type, metric_value, source, note, created_at),
+            )
+        return self.get_performance_event(record_id)
+
+    def get_performance_event(self, event_id: str) -> PerformanceEventResponse | None:
+        with self._connect() as conn:
+            row = conn.execute("SELECT * FROM performance_events WHERE id = ?", (event_id,)).fetchone()
+        if not row:
+            return None
+        return PerformanceEventResponse(
+            id=row["id"],
+            campaign_id=row["campaign_id"],
+            variant_id=row["variant_id"],
+            platform=row["platform"],
+            metric_type=row["metric_type"],
+            metric_value=row["metric_value"],
+            source=row["source"],
+            note=row["note"],
+            created_at=row["created_at"],
+        )
+
+    def list_performance_events(self, campaign_id: str | None = None) -> list[PerformanceEventResponse]:
+        query = "SELECT * FROM performance_events"
+        params: tuple[str, ...] = ()
+        if campaign_id:
+            query += " WHERE campaign_id = ?"
+            params = (campaign_id,)
+        query += " ORDER BY created_at DESC"
+        with self._connect() as conn:
+            rows = conn.execute(query, params).fetchall()
+        return [
+            PerformanceEventResponse(
+                id=row["id"],
+                campaign_id=row["campaign_id"],
+                variant_id=row["variant_id"],
+                platform=row["platform"],
+                metric_type=row["metric_type"],
+                metric_value=row["metric_value"],
+                source=row["source"],
+                note=row["note"],
+                created_at=row["created_at"],
+            )
+            for row in rows
+        ]
+
+    def build_performance_hints(self, campaign_id: str | None = None, limit: int = 5) -> list[str]:
+        events = self.list_performance_events(campaign_id=campaign_id)
+        hints: list[str] = []
+        for event in events:
+            if event.metric_value <= 0:
+                continue
+            variant = self.get_variant(event.variant_id) if event.variant_id else None
+            if variant:
+                hints.append(
+                    f"{variant.platform} {event.metric_type}={event.metric_value}: reuse pattern from variant {variant.variant_name}"
+                )
+            else:
+                hints.append(f"{event.platform} {event.metric_type}={event.metric_value}: keep this direction")
+            if len(hints) >= limit:
+                break
+        return hints

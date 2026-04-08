@@ -1,6 +1,7 @@
 from .repository import LocalMarketingRepository
 from .campaign_service import MarketingCampaignService
 from .approval_service import MarketingApprovalService
+from .analytics_service import MarketingAnalyticsService
 from .delivery_service import MarketingDeliveryService
 from .prompt_engine import MarketingPromptEngine
 from .safety_service import MarketingSafetyService
@@ -11,6 +12,7 @@ __all__ = [
     "LocalMarketingRepository",
     "MarketingCampaignService",
     "MarketingApprovalService",
+    "MarketingAnalyticsService",
     "MarketingDeliveryService",
     "MarketingStrategyService",
     "MarketingPromptEngine",

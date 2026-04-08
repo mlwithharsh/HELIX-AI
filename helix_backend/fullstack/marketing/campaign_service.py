@@ -57,6 +57,7 @@ class MarketingCampaignService:
             return None
         campaign, strategy = strategy_bundle
         brand_profile = self.repository.get_brand_profile(campaign.brand_profile_id) if campaign.brand_profile_id else None
+        learned_hints = self.repository.build_performance_hints(campaign_id=campaign.id)
 
         platforms = request.platforms or strategy.primary_platforms
         experiment_labels = request.experiment_labels or ["A"]
@@ -74,7 +75,7 @@ class MarketingCampaignService:
                         desired_tone=request.desired_tone or strategy.tone_direction,
                         cta_style=request.cta_style or (brand_profile.default_cta_style if brand_profile else strategy.cta_direction),
                         experiment_label=experiment_label,
-                        performance_hints=request.performance_hints or strategy.experiment_ideas,
+                        performance_hints=request.performance_hints or learned_hints or strategy.experiment_ideas,
                         preferred_vocabulary=brand_profile.preferred_vocabulary if brand_profile else [],
                         banned_phrases=brand_profile.banned_phrases if brand_profile else [],
                         signature_patterns=brand_profile.signature_patterns if brand_profile else [],

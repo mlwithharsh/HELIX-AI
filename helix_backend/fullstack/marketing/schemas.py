@@ -230,6 +230,16 @@ class DispatchJobRequest(BaseModel):
     execution_mode: ExecutionMode = "dry_run"
 
 
+class RecordPerformanceEventRequest(BaseModel):
+    campaign_id: str
+    variant_id: str | None = None
+    platform: str
+    metric_type: str
+    metric_value: float
+    source: str = "manual"
+    note: str = ""
+
+
 class PerformanceEventResponse(BaseModel):
     id: str
     campaign_id: str
@@ -238,7 +248,16 @@ class PerformanceEventResponse(BaseModel):
     metric_type: str
     metric_value: float
     source: str = "manual"
+    note: str = ""
     created_at: datetime
+
+
+class AnalyticsSummaryResponse(BaseModel):
+    campaign_id: str | None = None
+    total_events: int = 0
+    platform_scores: dict[str, float] = Field(default_factory=dict)
+    metric_averages: dict[str, float] = Field(default_factory=dict)
+    memory_hints: list[str] = Field(default_factory=list)
 
 
 class ExperimentRunResponse(BaseModel):

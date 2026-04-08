@@ -116,6 +116,7 @@ DDL_STATEMENTS = [
         metric_type TEXT NOT NULL,
         metric_value REAL NOT NULL DEFAULT 0,
         source TEXT NOT NULL DEFAULT 'manual',
+        note TEXT NOT NULL DEFAULT '',
         created_at TEXT NOT NULL,
         FOREIGN KEY (campaign_id) REFERENCES campaigns(id) ON DELETE CASCADE,
         FOREIGN KEY (variant_id) REFERENCES campaign_variants(id) ON DELETE SET NULL

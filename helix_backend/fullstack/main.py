@@ -24,8 +24,10 @@ from .services.training_service import OfflineRLHFService
 from .marketing import LocalMarketingRepository, MarketingCampaignService, MarketingPromptEngine, MarketingStrategyService
 from .marketing import MarketingApprovalService, MarketingSafetyService, MarketingSchedulerService
 from .marketing import MarketingDeliveryService
+from .marketing import MarketingAnalyticsService
 from .marketing.schemas import (
     ApprovalResultResponse,
+    AnalyticsSummaryResponse,
     ApproveVariantRequest,
     BrandProfileResponse,
     CampaignResponse,
@@ -35,6 +37,8 @@ from .marketing.schemas import (
     DispatchJobRequest,
     GenerateVariantsRequest,
     GenerateVariantsResponse,
+    PerformanceEventResponse,
+    RecordPerformanceEventRequest,
     ScheduleCampaignRequest,
     ScheduleCampaignResponse,
     ScheduledJobResponse,
@@ -63,6 +67,7 @@ marketing_safety_service = MarketingSafetyService(marketing_repository)
 marketing_approval_service = MarketingApprovalService(marketing_repository, marketing_safety_service)
 marketing_scheduler_service = MarketingSchedulerService(marketing_repository)
 marketing_delivery_service = MarketingDeliveryService(marketing_repository, settings)
+marketing_analytics_service = MarketingAnalyticsService(marketing_repository)
 
 app = FastAPI(title=settings.app_name)
 app.add_middleware(
@@ -261,6 +266,35 @@ async def dispatch_campaign_job(
 @app.get("/api/marketing/delivery-logs", response_model=list[DeliveryLogResponse])
 async def list_delivery_logs(_: AuthDep, __: RateDep, platform: str | None = None) -> list[DeliveryLogResponse]:
     return marketing_repository.list_delivery_logs(platform=platform)
+
+
+@app.post("/api/marketing/performance-events", response_model=PerformanceEventResponse)
+async def record_performance_event(
+    payload: RecordPerformanceEventRequest,
+    _: AuthDep,
+    __: RateDep,
+) -> PerformanceEventResponse:
+    campaign = marketing_repository.get_campaign(payload.campaign_id)
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    return marketing_analytics_service.record_event(payload)
+
+
+@app.get("/api/marketing/analytics/summary", response_model=AnalyticsSummaryResponse)
+async def get_analytics_summary(
+    _: AuthDep,
+    __: RateDep,
+    campaign_id: str | None = None,
+) -> AnalyticsSummaryResponse:
+    return marketing_analytics_service.summary(campaign_id=campaign_id)
+
+
+@app.get("/api/marketing/analytics/campaigns/{campaign_id}", response_model=AnalyticsSummaryResponse)
+async def get_campaign_analytics(campaign_id: str, _: AuthDep, __: RateDep) -> AnalyticsSummaryResponse:
+    campaign = marketing_repository.get_campaign(campaign_id)
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    return marketing_analytics_service.summary(campaign_id=campaign_id)
 
 
 @app.get("/api/status", response_model=StatusResponse)
