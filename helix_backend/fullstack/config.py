@@ -48,6 +48,7 @@ class Settings(BaseSettings):
     reddit_password: str | None = Field(default=None, alias="HELIX_REDDIT_PASSWORD")
     reddit_user_agent: str = Field(default="helix-local-marketing/1.0", alias="HELIX_REDDIT_USER_AGENT")
     reddit_default_subreddit: str | None = Field(default=None, alias="HELIX_REDDIT_SUBREDDIT")
+    credential_secret: str | None = Field(default=None, alias="HELIX_CREDENTIAL_SECRET")
     marketing_max_retries: int = Field(default=3, alias="HELIX_MARKETING_MAX_RETRIES")
     root_dir: str = str(ROOT_DIR)
 

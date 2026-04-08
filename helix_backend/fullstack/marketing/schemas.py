@@ -235,6 +235,21 @@ class PlatformAdapterStatusResponse(BaseModel):
     configured: bool
     supports_live: bool = True
     message: str = ""
+    account_label: str = "default"
+
+
+class UpsertChannelCredentialRequest(BaseModel):
+    platform: str
+    account_label: str = "default"
+    secrets: dict[str, str] = Field(default_factory=dict)
+
+
+class ChannelCredentialResponse(BaseModel):
+    id: str
+    platform: str
+    account_label: str
+    configured_fields: list[str] = Field(default_factory=list)
+    created_at: datetime
 
 
 class RecordPerformanceEventRequest(BaseModel):
