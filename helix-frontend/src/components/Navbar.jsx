@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Heart, MessageSquare, Info, Menu, X } from 'lucide-react';
+import { Bot, Heart, MessageSquare, Info, Menu, X } from 'lucide-react';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = React.useState(false);
@@ -9,6 +9,7 @@ const Navbar = () => {
 
   const navItems = [
     { name: 'Home', path: '/', icon: Heart },
+    { name: 'Agent', path: '/agent', icon: Bot },
     { name: 'Chat', path: '/chat', icon: MessageSquare },
     { name: 'About', path: '/about', icon: Info },
   ];
@@ -30,6 +31,10 @@ const Navbar = () => {
           <Link to="/" className={`nav-link flex items-center space-x-2 ${location.pathname === '/' ? 'text-text-primary' : ''}`}>
             <Heart className="w-4 h-4" />
             <span>Home</span>
+          </Link>
+          <Link to="/agent" className={`nav-link flex items-center space-x-2 ${location.pathname === '/agent' ? 'text-text-primary' : ''}`}>
+            <Bot className="w-4 h-4" />
+            <span>Agent</span>
           </Link>
           <Link to="/chat" className={`nav-link flex items-center space-x-2 ${location.pathname === '/chat' ? 'text-text-primary' : ''}`}>
             <MessageSquare className="w-4 h-4" />
@@ -56,6 +61,9 @@ const Navbar = () => {
               </Link>
               <Link to="/signup" className="btn-solace-primary !py-2 !px-6 text-sm">
                 Sign up
+              </Link>
+              <Link to="/agent" className="rounded-2xl border border-black/8 bg-white/70 px-4 py-2 text-sm font-bold text-text-primary transition-all duration-300 hover:bg-white">
+                Agent
               </Link>
             </div>
           )}

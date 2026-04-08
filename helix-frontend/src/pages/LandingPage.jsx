@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { MessageSquare, Shield, Sparkles, ArrowRight, Heart, Brain, Zap } from 'lucide-react';
+import { MessageSquare, Shield, Sparkles, ArrowRight, Heart, Brain, Zap, Bot, CalendarClock, LineChart } from 'lucide-react';
 
 const LandingPage = () => {
   return (
@@ -21,7 +21,7 @@ const LandingPage = () => {
             className="inline-flex items-center space-x-2 px-4 py-2 rounded-full bg-white/60 border border-black/5 text-solace-purple text-xs font-bold uppercase tracking-widest"
           >
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Personality-Aware Conversation</span>
+            <span>Conversation + Autonomous Agent</span>
           </motion.div>
 
           <motion.h1
@@ -30,8 +30,8 @@ const LandingPage = () => {
             transition={{ duration: 0.8, delay: 0.2 }}
             className="text-5xl md:text-7xl font-bold tracking-tight leading-tight"
           >
-            Your feelings deserve <br />
-            <span className="text-gradient">to be heard.</span>
+            Helix now runs as <br />
+            <span className="text-gradient">an active AI operator.</span>
           </motion.h1>
 
           <motion.p
@@ -40,7 +40,7 @@ const LandingPage = () => {
             transition={{ duration: 0.8, delay: 0.4 }}
             className="text-lg md:text-xl text-text-secondary max-w-2xl mx-auto leading-relaxed"
           >
-            A conversational system that learns your preferred tone, pace, and level of support over time while staying stable and clear.
+            Keep the adaptive chat system, then step into the Agent workspace to build local-first campaigns, approve variants, schedule execution, and learn from results without fragile browser automation.
           </motion.p>
 
           <motion.div
@@ -49,6 +49,10 @@ const LandingPage = () => {
             transition={{ duration: 0.8, delay: 0.6 }}
             className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4"
           >
+            <Link to="/agent" className="btn-solace-primary flex items-center space-x-2 group">
+              <span>Open Agent Workspace</span>
+              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            </Link>
             <Link to="/chat" className="btn-solace-primary flex items-center space-x-2 group">
               <span>Start Your Conversation</span>
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
@@ -57,6 +61,38 @@ const LandingPage = () => {
               Learn More
             </Link>
           </motion.div>
+        </div>
+      </section>
+
+      <section className="py-24 px-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center space-y-4 mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold">Agent Layer</h2>
+            <p className="text-text-secondary max-w-2xl mx-auto">
+              Helix can now work as a local marketing engine with strategy, approval, scheduling, and learning in one surface.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <StepCard
+              number="A1"
+              icon={Bot}
+              title="Generate platform variants"
+              desc="Turn one campaign goal into channel-specific copy for LinkedIn, X, Telegram, email, and more."
+            />
+            <StepCard
+              number="A2"
+              icon={CalendarClock}
+              title="Schedule and dispatch"
+              desc="Approve variants, convert them into jobs, and run dry-runs or live delivery through API-native adapters."
+            />
+            <StepCard
+              number="A3"
+              icon={LineChart}
+              title="Optimize from feedback"
+              desc="Store performance signals locally and let Helix bias future prompts toward what actually works."
+            />
+          </div>
         </div>
       </section>
 
