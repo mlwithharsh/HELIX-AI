@@ -51,4 +51,29 @@ export const modelAPI = {
 
 };
 
+export const marketingAPI = {
+  listBrandProfiles: () => api.get('/api/marketing/brand-profiles'),
+  createBrandProfile: (payload) => api.post('/api/marketing/brand-profiles', payload),
+  updateBrandProfile: (brandId, payload) => api.put(`/api/marketing/brand-profiles/${brandId}`, payload),
+  listCampaigns: (status) => api.get('/api/marketing/campaigns', { params: status ? { status } : {} }),
+  createCampaign: (payload) => api.post('/api/marketing/campaigns', payload),
+  generateStrategy: (campaignId) => api.post(`/api/marketing/campaigns/${campaignId}/strategy`),
+  generateVariants: (campaignId, payload) => api.post(`/api/marketing/campaigns/${campaignId}/generate`, payload),
+  listVariants: (campaignId) => api.get(`/api/marketing/campaigns/${campaignId}/variants`),
+  approveVariant: (variantId, approved, notes = '') =>
+    api.post(`/api/marketing/variants/${variantId}/approve`, { approved, notes }),
+  scheduleCampaign: (campaignId, payload) => api.post(`/api/marketing/campaigns/${campaignId}/schedule`, payload),
+  listSchedules: (status) => api.get('/api/marketing/schedules', { params: status ? { status } : {} }),
+  pauseSchedule: (jobId) => api.post(`/api/marketing/schedules/${jobId}/pause`),
+  resumeSchedule: (jobId) => api.post(`/api/marketing/schedules/${jobId}/resume`),
+  dispatchJob: (jobId, executionMode = 'dry_run') =>
+    api.post(`/api/marketing/jobs/${jobId}/dispatch-now`, { execution_mode: executionMode }),
+  listDeliveryLogs: (platform) => api.get('/api/marketing/delivery-logs', { params: platform ? { platform } : {} }),
+  recordPerformanceEvent: (payload) => api.post('/api/marketing/performance-events', payload),
+  getAnalyticsSummary: (campaignId) =>
+    api.get('/api/marketing/analytics/summary', { params: campaignId ? { campaign_id: campaignId } : {} }),
+  getCampaignAnalytics: (campaignId) => api.get(`/api/marketing/analytics/campaigns/${campaignId}`),
+  optimizeCampaign: (campaignId) => api.post(`/api/marketing/optimize/campaigns/${campaignId}`),
+};
+
 export default api;
