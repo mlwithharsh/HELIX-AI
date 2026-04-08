@@ -12,6 +12,7 @@
 ## 🚀 The Vision
 
 HELIX AI is a next-generation hybrid AI platform designed to provide **uninterrupted intelligence**. By dynamically routing requests between local device-side inference (Edge) and robust cloud-based models (Cloud), HELIX ensures privacy, speed, and reliability regardless of network conditions.
+<img width="1913" height="980" alt="image" src="https://github.com/user-attachments/assets/1e7e112f-ae80-4287-8852-de9a6e603a87" />
 
 ---
 
@@ -52,7 +53,7 @@ Real-time token streaming with live performance metrics.
 A minimal Android implementation of HELIX:
 - **Local Engine**: `libllama.so` (JNI) integration for on-device GGUF execution.
 - **Sync**: Automatically pings the Cloud backend when online; falls back to local core when offline.
-
+<img width="1919" height="978" alt="image" src="https://github.com/user-attachments/assets/711aad81-c7eb-4bba-9e18-1cdbb9a70ace" />
 ---
 
 ## 🛠️ API Specification
