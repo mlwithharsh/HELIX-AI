@@ -14,6 +14,7 @@ from .schemas import (
     CampaignResponse,
     CreateBrandProfileRequest,
     CreateCampaignRequest,
+    UpdateCampaignRequest,
     UpdateBrandProfileRequest,
 )
 
@@ -268,3 +269,53 @@ class LocalMarketingRepository:
             )
             for row in rows
         ]
+
+    def update_campaign(self, campaign_id: str, payload: UpdateCampaignRequest) -> CampaignResponse | None:
+        with self._connect() as conn:
+            existing = conn.execute(
+                "SELECT * FROM campaigns WHERE id = ?",
+                (campaign_id,),
+            ).fetchone()
+            if not existing:
+                return None
+            row = dict(existing)
+            updates = payload.model_dump(exclude_none=True)
+            merged = {
+                "id": row["id"],
+                "name": updates.get("name", row["name"]),
+                "goal": updates.get("goal", row["goal"]),
+                "target_audience": updates.get("target_audience", row["target_audience"]),
+                "brand_profile_id": updates.get("brand_profile_id", row["brand_profile_id"]),
+                "brand_voice": updates.get("brand_voice", row["brand_voice"]),
+                "offer_summary": updates.get("offer_summary", row["offer_summary"]),
+                "strategy_summary": updates.get("strategy_summary", row["strategy_summary"]),
+                "content_mix": updates.get("content_mix", self._decode_json(row["content_mix"], {})),
+                "posting_frequency": updates.get("posting_frequency", row["posting_frequency"]),
+                "status": updates.get("status", row["status"]),
+                "created_at": row["created_at"],
+                "updated_at": utc_now_iso(),
+            }
+            conn.execute(
+                """
+                UPDATE campaigns
+                SET name = ?, goal = ?, target_audience = ?, brand_profile_id = ?, brand_voice = ?,
+                    offer_summary = ?, strategy_summary = ?, content_mix = ?, posting_frequency = ?,
+                    status = ?, updated_at = ?
+                WHERE id = ?
+                """,
+                (
+                    merged["name"],
+                    merged["goal"],
+                    merged["target_audience"],
+                    merged["brand_profile_id"],
+                    merged["brand_voice"],
+                    merged["offer_summary"],
+                    merged["strategy_summary"],
+                    json.dumps(merged["content_mix"]),
+                    merged["posting_frequency"],
+                    merged["status"],
+                    merged["updated_at"],
+                    campaign_id,
+                ),
+            )
+        return self.get_campaign(campaign_id)

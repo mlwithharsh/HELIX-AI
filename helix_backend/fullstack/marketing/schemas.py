@@ -61,10 +61,80 @@ class CreateCampaignRequest(CampaignBase):
     pass
 
 
+class UpdateCampaignRequest(BaseModel):
+    name: str | None = None
+    goal: str | None = None
+    target_audience: str | None = None
+    brand_profile_id: str | None = None
+    brand_voice: str | None = None
+    offer_summary: str | None = None
+    strategy_summary: str | None = None
+    content_mix: dict[str, float] | None = None
+    posting_frequency: str | None = None
+    status: CampaignStatus | None = None
+
+
 class CampaignResponse(CampaignBase):
     id: str
     created_at: datetime
     updated_at: datetime
+
+
+class StrategyRequest(BaseModel):
+    goal: str
+    target_audience: str = ""
+    offer_summary: str = ""
+    brand_voice: str = ""
+    preferred_platforms: list[str] = Field(default_factory=list)
+    autonomous_mode: bool = False
+
+
+class StrategyResponse(BaseModel):
+    campaign_goal: str
+    inferred_intent: str
+    primary_platforms: list[str] = Field(default_factory=list)
+    content_mix: dict[str, float] = Field(default_factory=dict)
+    posting_frequency: str
+    timing_hypothesis: str
+    tone_direction: str
+    cta_direction: str
+    experiment_ideas: list[str] = Field(default_factory=list)
+    strategy_summary: str
+
+
+class PromptBuildRequest(BaseModel):
+    platform: str
+    campaign_goal: str
+    target_audience: str = ""
+    offer_summary: str = ""
+    brand_voice: str = ""
+    desired_tone: str = ""
+    cta_style: str = ""
+    experiment_label: str = "A"
+    performance_hints: list[str] = Field(default_factory=list)
+    preferred_vocabulary: list[str] = Field(default_factory=list)
+    banned_phrases: list[str] = Field(default_factory=list)
+    signature_patterns: list[str] = Field(default_factory=list)
+    extra_context: list[str] = Field(default_factory=list)
+
+
+class PromptBuildResponse(BaseModel):
+    platform: str
+    system_prompt: str
+    user_prompt: str
+    output_contract: dict[str, Any] = Field(default_factory=dict)
+    generation_params: dict[str, Any] = Field(default_factory=dict)
+
+
+class GeneratedVariantDraft(BaseModel):
+    platform: str
+    variant_name: str
+    headline: str = ""
+    body: str
+    cta: str = ""
+    hashtags: list[str] = Field(default_factory=list)
+    reasoning_tags: list[str] = Field(default_factory=list)
+    experiment_label: str = "A"
 
 
 class CampaignVariantResponse(BaseModel):
