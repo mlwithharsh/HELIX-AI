@@ -54,6 +54,21 @@ const defaultPerformanceForm = {
   note: '',
 };
 
+const platformEnvHints = {
+  discord: ['HELIX_DISCORD_WEBHOOK_URL', 'or HELIX_DISCORD_BOT_TOKEN + HELIX_DISCORD_CHANNEL_ID'],
+  linkedin: ['HELIX_LINKEDIN_ACCESS_TOKEN', 'HELIX_LINKEDIN_AUTHOR_URN'],
+  reddit: [
+    'HELIX_REDDIT_CLIENT_ID',
+    'HELIX_REDDIT_CLIENT_SECRET',
+    'HELIX_REDDIT_USERNAME',
+    'HELIX_REDDIT_PASSWORD',
+    'HELIX_REDDIT_SUBREDDIT',
+  ],
+  telegram: ['HELIX_TELEGRAM_BOT_TOKEN', 'HELIX_TELEGRAM_CHAT_ID'],
+  webhook: ['HELIX_MARKETING_WEBHOOK_URL'],
+  x: ['HELIX_X_ACCESS_TOKEN'],
+};
+
 const AgentPage = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -86,6 +101,11 @@ const AgentPage = () => {
   const approvedVariants = useMemo(
     () => variants.filter((variant) => variant.approval_status === 'approved'),
     [variants],
+  );
+
+  const platformHealthMap = useMemo(
+    () => Object.fromEntries(platformHealth.map((item) => [item.platform, item])),
+    [platformHealth],
   );
 
   const summaryCards = useMemo(() => {
@@ -295,6 +315,12 @@ const AgentPage = () => {
   }
 
   async function handleDispatch(jobId, executionMode) {
+    const job = schedules.find((item) => item.id === jobId);
+    const health = job ? platformHealthMap[job.platform] : null;
+    if (executionMode === 'live' && health && !health.configured) {
+      toast.error(`${job.platform} is not configured for live dispatch`);
+      return;
+    }
     try {
       const response = await marketingAPI.dispatchJob(jobId, executionMode);
       setLogs((current) => [response.data, ...current]);
@@ -712,6 +738,31 @@ const AgentPage = () => {
                     )}
                   </SubPanel>
 
+                  <SubPanel title="Operator Settings">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {Object.entries(platformEnvHints).map(([platform, keys]) => {
+                        const status = platformHealthMap[platform];
+                        return (
+                          <div key={platform} className="rounded-2xl border border-black/5 bg-white/80 px-4 py-4">
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="text-sm font-semibold uppercase tracking-[0.16em] text-text-primary">{platform}</div>
+                              <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] ${
+                                status?.configured ? 'bg-[#7f9476] text-white' : 'bg-[#ece6db] text-text-muted'
+                              }`}>
+                                {status?.configured ? 'Configured' : 'Pending'}
+                              </span>
+                            </div>
+                            <div className="mt-3 space-y-1">
+                              {keys.map((key) => (
+                                <div key={key} className="text-xs text-text-secondary">{key}</div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </SubPanel>
+
                   <SubPanel title="Scheduled Jobs">
                     {schedules.slice(0, 5).map((job) => (
                       <ListRow
@@ -721,6 +772,18 @@ const AgentPage = () => {
                         action={(
                           <div className="flex gap-2">
                             <button type="button" onClick={() => handleDispatch(job.id, 'dry_run')} className="rounded-xl border border-black/8 bg-white px-3 py-2 text-xs font-bold text-text-primary">Dry Run</button>
+                            <button
+                              type="button"
+                              onClick={() => handleDispatch(job.id, 'live')}
+                              disabled={!platformHealthMap[job.platform]?.configured}
+                              className={`rounded-xl px-3 py-2 text-xs font-bold ${
+                                platformHealthMap[job.platform]?.configured
+                                  ? 'bg-[#6d7b68] text-white'
+                                  : 'bg-[#ece6db] text-text-muted cursor-not-allowed'
+                              }`}
+                            >
+                              Live
+                            </button>
                             {job.status === 'paused' ? (
                               <button type="button" onClick={() => handleScheduleStatus(job.id, 'resume')} className="rounded-xl border border-black/8 bg-white px-3 py-2 text-xs font-bold text-text-primary">Resume</button>
                             ) : (
