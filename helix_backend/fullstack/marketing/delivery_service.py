@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 
-from .adapters import TelegramAdapter, WebhookAdapter
+from .adapters import DiscordAdapter, LinkedInAdapter, RedditAdapter, TelegramAdapter, WebhookAdapter, XAdapter
 from .repository import LocalMarketingRepository
 from .schemas import DeliveryLogResponse
 from ..config import Settings
@@ -23,8 +23,12 @@ class MarketingDeliveryService:
         self.settings = settings
         self.scheduler = None
         self.adapters = {
+            "discord": DiscordAdapter(settings),
+            "linkedin": LinkedInAdapter(settings),
+            "reddit": RedditAdapter(settings),
             "telegram": TelegramAdapter(settings),
             "webhook": WebhookAdapter(settings),
+            "x": XAdapter(settings),
         }
 
     def start(self) -> None:
@@ -61,6 +65,19 @@ class MarketingDeliveryService:
         if not adapter:
             self.repository.update_scheduled_job_status(job_id, "failed", f"No adapter configured for {job.platform}")
             return None
+        if execution_mode == "live":
+            valid, message = adapter.validate_credentials()
+            if not valid:
+                self.repository.update_scheduled_job_status(job_id, "failed", message)
+                return self.repository.create_delivery_log(
+                    job_id=job.id,
+                    platform=job.platform,
+                    request_payload={},
+                    response_payload={"error": message},
+                    status="failed",
+                    external_post_id="",
+                    execution_mode=execution_mode,
+                )
 
         self.repository.update_scheduled_job_status(job_id, "running")
         variant_payload = variant.model_dump()
