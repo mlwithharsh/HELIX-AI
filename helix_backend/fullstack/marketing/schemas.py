@@ -152,6 +152,21 @@ class CampaignVariantResponse(BaseModel):
     created_at: datetime
 
 
+class GenerateVariantsRequest(BaseModel):
+    platforms: list[str] = Field(default_factory=list)
+    experiment_labels: list[str] = Field(default_factory=lambda: ["A"])
+    desired_tone: str = ""
+    cta_style: str = ""
+    performance_hints: list[str] = Field(default_factory=list)
+    extra_context: list[str] = Field(default_factory=list)
+
+
+class GenerateVariantsResponse(BaseModel):
+    campaign: CampaignResponse
+    strategy: StrategyResponse
+    variants: list[CampaignVariantResponse] = Field(default_factory=list)
+
+
 class TemplateResponse(BaseModel):
     id: str
     name: str

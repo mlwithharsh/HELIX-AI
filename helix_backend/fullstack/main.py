@@ -4,7 +4,7 @@ import json
 import logging
 from typing import Annotated
 
-from fastapi import BackgroundTasks, Depends, FastAPI
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
@@ -21,6 +21,18 @@ from .services.repository import SupabaseRepository
 from .services.retrieval_service import RetrievalService
 from .services.reward_service import feedback_reward
 from .services.training_service import OfflineRLHFService
+from .marketing import LocalMarketingRepository, MarketingCampaignService, MarketingPromptEngine, MarketingStrategyService
+from .marketing.schemas import (
+    BrandProfileResponse,
+    CampaignResponse,
+    CreateBrandProfileRequest,
+    CreateCampaignRequest,
+    GenerateVariantsRequest,
+    GenerateVariantsResponse,
+    StrategyRequest,
+    StrategyResponse,
+    UpdateBrandProfileRequest,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +42,14 @@ model_service = AdaptiveInferenceService(settings)
 retrieval_service = RetrievalService(repository)
 training_service = OfflineRLHFService(repository, model_service, settings.adapter_root)
 embedding_preprocessor = StatePreprocessor()
+marketing_repository = LocalMarketingRepository(settings)
+marketing_strategy_service = MarketingStrategyService()
+marketing_prompt_engine = MarketingPromptEngine()
+marketing_campaign_service = MarketingCampaignService(
+    marketing_repository,
+    marketing_strategy_service,
+    marketing_prompt_engine,
+)
 
 app = FastAPI(title=settings.app_name)
 app.add_middleware(
@@ -70,6 +90,87 @@ async def login(payload: dict):
         from fastapi import HTTPException
         raise HTTPException(status_code=401, detail=error)
     return {"user_id": user_id, "message": "Login successful"}
+
+
+@app.post("/api/marketing/brand-profiles", response_model=BrandProfileResponse)
+async def create_brand_profile(payload: CreateBrandProfileRequest, _: AuthDep, __: RateDep) -> BrandProfileResponse:
+    return marketing_repository.upsert_brand_profile(payload)
+
+
+@app.get("/api/marketing/brand-profiles", response_model=list[BrandProfileResponse])
+async def list_brand_profiles(_: AuthDep, __: RateDep) -> list[BrandProfileResponse]:
+    return marketing_repository.list_brand_profiles()
+
+
+@app.get("/api/marketing/brand-profiles/{brand_id}", response_model=BrandProfileResponse)
+async def get_brand_profile(brand_id: str, _: AuthDep, __: RateDep) -> BrandProfileResponse:
+    brand = marketing_repository.get_brand_profile(brand_id)
+    if not brand:
+        raise HTTPException(status_code=404, detail="Brand profile not found")
+    return brand
+
+
+@app.put("/api/marketing/brand-profiles/{brand_id}", response_model=BrandProfileResponse)
+async def update_brand_profile(
+    brand_id: str,
+    payload: UpdateBrandProfileRequest,
+    _: AuthDep,
+    __: RateDep,
+) -> BrandProfileResponse:
+    return marketing_repository.upsert_brand_profile(payload, brand_id=brand_id)
+
+
+@app.post("/api/marketing/campaigns", response_model=CampaignResponse)
+async def create_marketing_campaign(payload: CreateCampaignRequest, _: AuthDep, __: RateDep) -> CampaignResponse:
+    return marketing_repository.create_campaign(payload)
+
+
+@app.get("/api/marketing/campaigns", response_model=list[CampaignResponse])
+async def list_marketing_campaigns(_: AuthDep, __: RateDep, status: str | None = None) -> list[CampaignResponse]:
+    return marketing_repository.list_campaigns(status=status)
+
+
+@app.get("/api/marketing/campaigns/{campaign_id}", response_model=CampaignResponse)
+async def get_marketing_campaign(campaign_id: str, _: AuthDep, __: RateDep) -> CampaignResponse:
+    campaign = marketing_repository.get_campaign(campaign_id)
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    return campaign
+
+
+@app.post("/api/marketing/strategy", response_model=StrategyResponse)
+async def infer_marketing_strategy(payload: StrategyRequest, _: AuthDep, __: RateDep) -> StrategyResponse:
+    return marketing_strategy_service.infer_strategy(payload)
+
+
+@app.post("/api/marketing/campaigns/{campaign_id}/strategy", response_model=StrategyResponse)
+async def generate_campaign_strategy(campaign_id: str, _: AuthDep, __: RateDep) -> StrategyResponse:
+    result = marketing_campaign_service.generate_strategy_for_campaign(campaign_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    _, strategy = result
+    return strategy
+
+
+@app.post("/api/marketing/campaigns/{campaign_id}/generate", response_model=GenerateVariantsResponse)
+async def generate_campaign_variants(
+    campaign_id: str,
+    payload: GenerateVariantsRequest,
+    _: AuthDep,
+    __: RateDep,
+) -> GenerateVariantsResponse:
+    result = marketing_campaign_service.generate_variants(campaign_id, payload)
+    if not result:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    return result
+
+
+@app.get("/api/marketing/campaigns/{campaign_id}/variants")
+async def list_campaign_variants(campaign_id: str, _: AuthDep, __: RateDep):
+    campaign = marketing_repository.get_campaign(campaign_id)
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    return {"items": [item.model_dump() for item in marketing_repository.list_variants(campaign_id)]}
 
 
 @app.get("/api/status", response_model=StatusResponse)

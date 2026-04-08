@@ -12,6 +12,7 @@ from .models import DDL_STATEMENTS, INDEX_STATEMENTS, utc_now_iso
 from .schemas import (
     BrandProfileResponse,
     CampaignResponse,
+    CampaignVariantResponse,
     CreateBrandProfileRequest,
     CreateCampaignRequest,
     UpdateCampaignRequest,
@@ -319,3 +320,91 @@ class LocalMarketingRepository:
                 ),
             )
         return self.get_campaign(campaign_id)
+
+    def create_variant(
+        self,
+        *,
+        campaign_id: str,
+        platform: str,
+        variant_name: str,
+        prompt_snapshot: str,
+        generated_text: str,
+        cta: str,
+        hashtags: list[str],
+        score: float,
+        experiment_group: str,
+        approval_status: str,
+    ) -> CampaignVariantResponse:
+        record_id = str(uuid4())
+        created_at = utc_now_iso()
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO campaign_variants (
+                    id, campaign_id, platform, variant_name, prompt_snapshot, generated_text,
+                    cta, hashtags, score, experiment_group, approval_status, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    record_id,
+                    campaign_id,
+                    platform,
+                    variant_name,
+                    prompt_snapshot,
+                    generated_text,
+                    cta,
+                    json.dumps(hashtags),
+                    score,
+                    experiment_group,
+                    approval_status,
+                    created_at,
+                ),
+            )
+        return self.get_variant(record_id)
+
+    def get_variant(self, variant_id: str) -> CampaignVariantResponse | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM campaign_variants WHERE id = ?",
+                (variant_id,),
+            ).fetchone()
+        if not row:
+            return None
+        return CampaignVariantResponse(
+            id=row["id"],
+            campaign_id=row["campaign_id"],
+            platform=row["platform"],
+            variant_name=row["variant_name"],
+            prompt_snapshot=row["prompt_snapshot"],
+            generated_text=row["generated_text"],
+            cta=row["cta"],
+            hashtags=self._decode_json(row["hashtags"], []),
+            score=row["score"],
+            experiment_group=row["experiment_group"],
+            approval_status=row["approval_status"],
+            created_at=row["created_at"],
+        )
+
+    def list_variants(self, campaign_id: str) -> list[CampaignVariantResponse]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM campaign_variants WHERE campaign_id = ? ORDER BY created_at DESC",
+                (campaign_id,),
+            ).fetchall()
+        return [
+            CampaignVariantResponse(
+                id=row["id"],
+                campaign_id=row["campaign_id"],
+                platform=row["platform"],
+                variant_name=row["variant_name"],
+                prompt_snapshot=row["prompt_snapshot"],
+                generated_text=row["generated_text"],
+                cta=row["cta"],
+                hashtags=self._decode_json(row["hashtags"], []),
+                score=row["score"],
+                experiment_group=row["experiment_group"],
+                approval_status=row["approval_status"],
+                created_at=row["created_at"],
+            )
+            for row in rows
+        ]
