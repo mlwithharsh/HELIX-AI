@@ -1120,6 +1120,17 @@ function splitList(value) {
     .filter(Boolean);
 }
 
+function settledData(result, fallback, key = null) {
+  if (!result || result.status !== 'fulfilled') {
+    return fallback;
+  }
+  const payload = result.value?.data;
+  if (!key) {
+    return payload ?? fallback;
+  }
+  return payload?.[key] ?? fallback;
+}
+
 function readError(error, fallback) {
   return error?.response?.data?.detail || error?.message || fallback;
 }
