@@ -81,6 +81,8 @@ const AgentPage = () => {
   const [analytics, setAnalytics] = useState(null);
   const [optimization, setOptimization] = useState(null);
   const [strategy, setStrategy] = useState(null);
+  const [scheduleFilter, setScheduleFilter] = useState('all');
+  const [logFilter, setLogFilter] = useState('all');
   const [brandForm, setBrandForm] = useState(defaultBrandForm);
   const [campaignForm, setCampaignForm] = useState(defaultCampaignForm);
   const [generationForm, setGenerationForm] = useState(defaultGenerationForm);
@@ -110,13 +112,32 @@ const AgentPage = () => {
 
   const summaryCards = useMemo(() => {
     const queuedJobs = schedules.filter((job) => ['pending', 'queued', 'running'].includes(job.status)).length;
+    const readyPlatforms = platformHealth.filter((item) => item.configured).length;
     return [
       { label: 'Campaigns', value: campaigns.length, icon: Bot, tone: 'from-[#7f9476]/18 to-[#bfa98b]/10' },
       { label: 'Approved Variants', value: approvedVariants.length, icon: CheckCircle2, tone: 'from-[#bfa98b]/18 to-[#7f9476]/10' },
       { label: 'Queued Jobs', value: queuedJobs, icon: CalendarClock, tone: 'from-[#d8cfbf] to-[#bfa98b]/12' },
-      { label: 'Performance Events', value: analytics?.total_events || 0, icon: LineChart, tone: 'from-[#7f9476]/10 to-[#d8cfbf]' },
+      { label: 'Live-Ready Platforms', value: readyPlatforms, icon: LineChart, tone: 'from-[#7f9476]/10 to-[#d8cfbf]' },
     ];
-  }, [analytics, approvedVariants.length, campaigns.length, schedules]);
+  }, [approvedVariants.length, campaigns.length, platformHealth, schedules]);
+
+  const selectedVariantWarnings = useMemo(() => {
+    return selectedVariantIds
+      .map((variantId) => variants.find((item) => item.id === variantId))
+      .filter(Boolean)
+      .filter((variant) => !platformHealthMap[variant.platform]?.configured)
+      .map((variant) => `${variant.platform} is not configured for live dispatch`);
+  }, [platformHealthMap, selectedVariantIds, variants]);
+
+  const filteredSchedules = useMemo(() => {
+    if (scheduleFilter === 'all') return schedules;
+    return schedules.filter((job) => job.platform === scheduleFilter || job.status === scheduleFilter);
+  }, [scheduleFilter, schedules]);
+
+  const filteredLogs = useMemo(() => {
+    if (logFilter === 'all') return logs;
+    return logs.filter((log) => log.platform === logFilter || log.status === logFilter || log.execution_mode === logFilter);
+  }, [logFilter, logs]);
 
   useEffect(() => {
     loadDashboard();
@@ -659,6 +680,11 @@ const AgentPage = () => {
               <div className="space-y-6">
                 <div className="rounded-3xl border border-black/5 bg-[rgba(255,252,247,0.76)] p-5 space-y-4">
                   <div className="text-sm font-bold text-text-primary">Schedule Approved Variants</div>
+                  {selectedVariantWarnings.length ? (
+                    <div className="rounded-2xl border border-[#bfa98b]/30 bg-[rgba(191,169,139,0.12)] px-4 py-3 text-xs text-text-secondary">
+                      {selectedVariantWarnings.join(' | ')}
+                    </div>
+                  ) : null}
                   <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3">
                     <input
                       type="datetime-local"
@@ -764,7 +790,25 @@ const AgentPage = () => {
                   </SubPanel>
 
                   <SubPanel title="Scheduled Jobs">
-                    {schedules.slice(0, 5).map((job) => (
+                    <div className="mb-4">
+                      <select
+                        value={scheduleFilter}
+                        onChange={(event) => setScheduleFilter(event.target.value)}
+                        className="rounded-xl border border-black/8 bg-white/80 px-3 py-2 text-xs font-bold uppercase tracking-[0.16em] text-text-primary outline-none"
+                      >
+                        <option value="all">All Schedules</option>
+                        <option value="queued">Queued</option>
+                        <option value="pending">Pending</option>
+                        <option value="running">Running</option>
+                        <option value="completed">Completed</option>
+                        <option value="failed">Failed</option>
+                        <option value="paused">Paused</option>
+                        {platformHealth.map((item) => (
+                          <option key={`schedule-${item.platform}`} value={item.platform}>{item.platform}</option>
+                        ))}
+                      </select>
+                    </div>
+                    {filteredSchedules.slice(0, 5).map((job) => (
                       <ListRow
                         key={job.id}
                         title={`${job.platform} - ${job.status}`}
@@ -793,11 +837,27 @@ const AgentPage = () => {
                         )}
                       />
                     ))}
-                    {!schedules.length && <MiniEmpty>No scheduled jobs yet.</MiniEmpty>}
+                    {!filteredSchedules.length && <MiniEmpty>No scheduled jobs for this filter.</MiniEmpty>}
                   </SubPanel>
 
                   <SubPanel title="Delivery Logs">
-                    {logs.slice(0, 5).map((log) => (
+                    <div className="mb-4">
+                      <select
+                        value={logFilter}
+                        onChange={(event) => setLogFilter(event.target.value)}
+                        className="rounded-xl border border-black/8 bg-white/80 px-3 py-2 text-xs font-bold uppercase tracking-[0.16em] text-text-primary outline-none"
+                      >
+                        <option value="all">All Logs</option>
+                        <option value="dry_run">Dry Run</option>
+                        <option value="live">Live</option>
+                        <option value="failed">Failed</option>
+                        <option value="sent">Sent</option>
+                        {platformHealth.map((item) => (
+                          <option key={`log-${item.platform}`} value={item.platform}>{item.platform}</option>
+                        ))}
+                      </select>
+                    </div>
+                    {filteredLogs.slice(0, 5).map((log) => (
                       <ListRow
                         key={log.id}
                         title={`${log.platform} - ${log.status}`}
@@ -805,7 +865,7 @@ const AgentPage = () => {
                         action={<Send className="w-4 h-4 text-text-muted" />}
                       />
                     ))}
-                    {!logs.length && <MiniEmpty>No delivery logs yet.</MiniEmpty>}
+                    {!filteredLogs.length && <MiniEmpty>No delivery logs for this filter.</MiniEmpty>}
                   </SubPanel>
 
                   <SubPanel title="Analytics Snapshot">
