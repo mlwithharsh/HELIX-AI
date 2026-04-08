@@ -676,7 +676,7 @@ const AgentPage = () => {
                     {schedules.slice(0, 5).map((job) => (
                       <ListRow
                         key={job.id}
-                        title={`${job.platform} • ${job.status}`}
+                        title={`${job.platform} - ${job.status}`}
                         meta={new Date(job.run_at).toLocaleString()}
                         action={(
                           <div className="flex gap-2">
@@ -697,8 +697,8 @@ const AgentPage = () => {
                     {logs.slice(0, 5).map((log) => (
                       <ListRow
                         key={log.id}
-                        title={`${log.platform} • ${log.status}`}
-                        meta={`${log.execution_mode} • ${new Date(log.created_at).toLocaleString()}`}
+                        title={`${log.platform} - ${log.status}`}
+                        meta={`${log.execution_mode} - ${new Date(log.created_at).toLocaleString()}`}
                         action={<Send className="w-4 h-4 text-text-muted" />}
                       />
                     ))}
