@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     marketing_db_path: str = Field(default="memory/helix_marketing.db", alias="HELIX_MARKETING_DB_PATH")
     cache_ttl_seconds: int = Field(default=300, alias="HELIX_CACHE_TTL_SECONDS")
     use_local_llm: bool = Field(default=True, alias="HELIX_USE_LOCAL_LLM")
-    rate_limit_requests: int = Field(default=30, alias="HELIX_RATE_LIMIT_REQUESTS")
+    rate_limit_requests: int = Field(default=100, alias="HELIX_RATE_LIMIT_REQUESTS")
     rate_limit_window_seconds: int = Field(default=60, alias="HELIX_RATE_LIMIT_WINDOW_SECONDS")
     marketing_webhook_url: str | None = Field(default=None, alias="HELIX_MARKETING_WEBHOOK_URL")
     telegram_bot_token: str | None = Field(default=None, alias="HELIX_TELEGRAM_BOT_TOKEN")
