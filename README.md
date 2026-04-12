@@ -90,7 +90,7 @@ Explore the specialized guides for each part of the HELIX ecosystem:
 | [**RL & Personality Core**](./README_RL.md) | How the Suzi/Helix personalities adapt using Reinforcement Learning. |
 | [**Edge Validation Report**](./EDGE_VALIDATION_REPORT.md) | Benchmarks for local GGUF inference and system performance. |
 | [**Changelog**](./CHANGELOG.md) | Version history and latest feature updates. |
-
+.
 ---
 
 ## 📊 Performance Benchmarks
