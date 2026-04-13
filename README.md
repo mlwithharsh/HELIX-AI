@@ -2,6 +2,7 @@
 
 ## Project Vision
 HELIX is an advanced AI orchestration platform architected to deliver persistent intelligence through a split-brain methodology. By seamlessly integrating local Edge inference with high-performance Cloud LLMs, HELIX provides a secure, low-latency, and uninterrupted cognitive layer for individual users and enterprise automation.
+<img width="1912" height="976" alt="image" src="https://github.com/user-attachments/assets/2672e71d-8269-42ef-a80b-0bed7b143cd2" />
 
 ## Why This Project Matters
 The AI landscape is currently bifurcated between high-latency cloud-dependent models and resource-constrained local models. HELIX resolves this tension by:
