@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { MessageSquare, Shield, Sparkles, ArrowRight, Heart, Brain, Zap, Bot, CalendarClock, LineChart } from 'lucide-react';
+import { MessageSquare, Shield, Sparkles, ArrowRight, Heart, Brain, Zap, Bot, CalendarClock, LineChart, RadioTower, Trees, Waves } from 'lucide-react';
 
 const LandingPage = () => {
   return (
@@ -57,6 +57,10 @@ const LandingPage = () => {
               <span>Start Your Conversation</span>
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </Link>
+            <Link to="/smart-parks" className="btn-solace-outline flex items-center space-x-2 group">
+              <span>Explore Smart Parks</span>
+              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            </Link>
             <Link to="/about" className="btn-solace-outline">
               Learn More
             </Link>
@@ -91,6 +95,48 @@ const LandingPage = () => {
               icon={LineChart}
               title="Optimize from feedback"
               desc="Store performance signals locally and let Helix bias future prompts toward what actually works."
+            />
+          </div>
+        </div>
+      </section>
+
+      <section className="py-24 px-6 bg-[linear-gradient(180deg,rgba(239,245,239,0.9),rgba(247,249,246,0.86))]">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between mb-16">
+            <div className="space-y-4">
+              <div className="inline-flex items-center gap-2 rounded-full border border-[#325742]/10 bg-white/70 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.22em] text-[#35553f]">
+                <Trees className="w-3.5 h-3.5" />
+                <span>New Helix Segment</span>
+              </div>
+              <h2 className="text-3xl md:text-4xl font-bold">Smart Parks</h2>
+              <p className="text-text-secondary max-w-2xl">
+                Helix now includes a dedicated urban monitoring segment for the DDA Smart Parks concept: telemetry, pilot readiness, and scale planning in one place.
+              </p>
+            </div>
+            <Link to="/smart-parks" className="btn-solace-primary flex items-center space-x-2 group">
+              <span>Open Smart Parks</span>
+              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <StepCard
+              number="S1"
+              icon={RadioTower}
+              title="Map live sensor layers"
+              desc="Frame tree health, soil quality, and water quality as one integrated sensing network."
+            />
+            <StepCard
+              number="S2"
+              icon={Waves}
+              title="Track pilot signal health"
+              desc="Review park-level risk bands and convert pitch assumptions into an operator dashboard."
+            />
+            <StepCard
+              number="S3"
+              icon={Trees}
+              title="Plan city-scale rollout"
+              desc="Move from a 3-park pilot to a repeatable expansion model with local data ownership."
             />
           </div>
         </div>

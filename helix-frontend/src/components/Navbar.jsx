@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Bot, Heart, MessageSquare, Info, Menu, X } from 'lucide-react';
+import { Bot, Heart, MessageSquare, Info, Menu, Trees, X } from 'lucide-react';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = React.useState(false);
@@ -10,6 +10,7 @@ const Navbar = () => {
   const navItems = [
     { name: 'Home', path: '/', icon: Heart },
     { name: 'Agent', path: '/agent', icon: Bot },
+    { name: 'Smart Parks', path: '/smart-parks', icon: Trees },
     { name: 'Chat', path: '/chat', icon: MessageSquare },
     { name: 'About', path: '/about', icon: Info },
   ];
@@ -35,6 +36,10 @@ const Navbar = () => {
           <Link to="/agent" className={`nav-link flex items-center space-x-2 ${location.pathname === '/agent' ? 'text-text-primary' : ''}`}>
             <Bot className="w-4 h-4" />
             <span>Agent</span>
+          </Link>
+          <Link to="/smart-parks" className={`nav-link flex items-center space-x-2 ${location.pathname === '/smart-parks' ? 'text-text-primary' : ''}`}>
+            <Trees className="w-4 h-4" />
+            <span>Smart Parks</span>
           </Link>
           <Link to="/chat" className={`nav-link flex items-center space-x-2 ${location.pathname === '/chat' ? 'text-text-primary' : ''}`}>
             <MessageSquare className="w-4 h-4" />

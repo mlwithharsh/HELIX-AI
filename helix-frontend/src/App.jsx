@@ -14,6 +14,7 @@ import AboutPage from './pages/AboutPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import AgentPage from './pages/AgentPage';
+import SmartParksPage from './pages/SmartParksPage';
 
 // Context
 import { AIProvider } from './context/AIContext';
@@ -31,6 +32,7 @@ const AppContent = () => {
           <Routes location={location} key={location.pathname}>
             <Route path="/" element={<LandingPage />} />
             <Route path="/agent" element={<AgentPage />} />
+            <Route path="/smart-parks" element={<SmartParksPage />} />
             <Route path="/chat" element={<ChatPage />} />
             <Route path="/about" element={<AboutPage />} />
             <Route path="/login" element={<LoginPage />} />
