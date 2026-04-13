@@ -415,3 +415,145 @@ class SmartParksRepository:
             )
             row = conn.execute("SELECT * FROM work_orders WHERE id = ?", (work_order_id,)).fetchone()
         return self._work_order_from_row(row)
+
+    def ingest_readings(self, payload: IngestReadingsRequest) -> IngestReadingsResponse:
+        created_alerts: list[AlertResponse] = []
+        accepted = 0
+        with self._connect() as conn:
+            for item in payload.readings:
+                device_row = conn.execute("SELECT * FROM devices WHERE id = ?", (item.device_id,)).fetchone()
+                if not device_row:
+                    continue
+                accepted += 1
+                park_id = device_row["park_id"]
+                recorded_at = (item.recorded_at or datetime.now(timezone.utc)).isoformat()
+                sensor_type = device_row["device_type"]
+                risk, threshold = self._classify_risk(item.metric_key, item.metric_value)
+                conn.execute(
+                    """
+                    INSERT INTO telemetry_readings (
+                        id, park_id, device_id, sensor_type, metric_key, metric_value, unit,
+                        risk_level, source, metadata, recorded_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        str(uuid4()),
+                        park_id,
+                        item.device_id,
+                        sensor_type,
+                        item.metric_key,
+                        item.metric_value,
+                        item.unit,
+                        risk,
+                        item.source,
+                        json.dumps(item.metadata),
+                        recorded_at,
+                    ),
+                )
+                conn.execute(
+                    """
+                    UPDATE devices
+                    SET last_seen_at = ?, updated_at = ?, status = ?, battery_level = COALESCE(battery_level, ?)
+                    WHERE id = ?
+                    """,
+                    (
+                        recorded_at,
+                        utc_now_iso(),
+                        "warning" if risk in {"warning", "critical"} else "online",
+                        round(random.uniform(55, 97), 2),
+                        item.device_id,
+                    ),
+                )
+                alert = self._maybe_create_alert(conn, park_id, item.device_id, item.metric_key, item.metric_value, risk, threshold)
+                if alert:
+                    created_alerts.append(alert)
+
+        return IngestReadingsResponse(
+            accepted=accepted,
+            alerts_created=len(created_alerts),
+            latest_alerts=created_alerts[-10:],
+        )
+
+    def _classify_risk(self, metric_key: str, value: float) -> tuple[str, float | None]:
+        rule = THRESHOLDS.get(metric_key)
+        if not rule:
+            return "normal", None
+
+        if "critical" in rule and value >= rule["critical"]:
+            return "critical", rule["critical"]
+        if "warning" in rule and value >= rule["warning"]:
+            return "warning", rule["warning"]
+        if "watch" in rule and value >= rule["watch"]:
+            return "watch", rule["watch"]
+        if "critical_low" in rule and value <= rule["critical_low"]:
+            return "critical", rule["critical_low"]
+        if "warning_low" in rule and value <= rule["warning_low"]:
+            return "warning", rule["warning_low"]
+        if "watch_low" in rule and value <= rule["watch_low"]:
+            return "watch", rule["watch_low"]
+        if "critical_high" in rule and value >= rule["critical_high"]:
+            return "critical", rule["critical_high"]
+        if "warning_high" in rule and value >= rule["warning_high"]:
+            return "warning", rule["warning_high"]
+        if "watch_high" in rule and value >= rule["watch_high"]:
+            return "watch", rule["watch_high"]
+        return "normal", None
+
+    def _maybe_create_alert(
+        self,
+        conn: sqlite3.Connection,
+        park_id: str,
+        device_id: str,
+        metric_key: str,
+        metric_value: float,
+        risk_level: str,
+        threshold: float | None,
+    ) -> AlertResponse | None:
+        if risk_level == "normal":
+            return None
+        existing = conn.execute(
+            """
+            SELECT * FROM alerts
+            WHERE park_id = ? AND device_id = ? AND metric_key = ? AND status != 'resolved'
+            ORDER BY created_at DESC LIMIT 1
+            """,
+            (park_id, device_id, metric_key),
+        ).fetchone()
+        if existing:
+            return None
+
+        severity = "critical" if risk_level == "critical" else "warning" if risk_level == "warning" else "watch"
+        record_id = str(uuid4())
+        created_at = utc_now_iso()
+        title = f"{metric_key.replace('_', ' ').title()} threshold breach"
+        message = f"Device {device_id} reported {metric_value:.2f} for {metric_key}, entering {risk_level} risk."
+        conn.execute(
+            """
+            INSERT INTO alerts (
+                id, park_id, device_id, severity, status, title, message,
+                metric_key, metric_value, threshold_value, created_at
+            ) VALUES (?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?)
+            """,
+            (record_id, park_id, device_id, severity, title, message, metric_key, metric_value, threshold, created_at),
+        )
+        row = conn.execute("SELECT * FROM alerts WHERE id = ?", (record_id,)).fetchone()
+        if severity == "critical":
+            conn.execute(
+                """
+                INSERT INTO work_orders (
+                    id, park_id, alert_id, title, description, priority, status, assigned_to, due_at, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, 'open', '', ?, ?, ?)
+                """,
+                (
+                    str(uuid4()),
+                    park_id,
+                    record_id,
+                    f"Inspect {metric_key.replace('_', ' ')} issue",
+                    f"Auto-created from critical alert on device {device_id}.",
+                    severity,
+                    (datetime.now(timezone.utc) + timedelta(days=2)).isoformat(),
+                    created_at,
+                    created_at,
+                ),
+            )
+        return self._alert_from_row(row)
