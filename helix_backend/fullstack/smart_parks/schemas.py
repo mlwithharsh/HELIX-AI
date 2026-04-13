@@ -54,6 +54,17 @@ class DeviceResponse(BaseModel):
     updated_at: datetime
 
 
+class RegisterDeviceRequest(BaseModel):
+    park_id: str
+    zone_id: str | None = None
+    name: str
+    device_type: DeviceType
+    connectivity: Connectivity = "manual"
+    firmware_version: str = "v1.0.0"
+    battery_level: float | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
 class ReadingResponse(BaseModel):
     id: str
     park_id: str
@@ -135,6 +146,19 @@ class IngestReadingsResponse(BaseModel):
     accepted: int = 0
     alerts_created: int = 0
     latest_alerts: list[AlertResponse] = Field(default_factory=list)
+
+
+class ThresholdEntryResponse(BaseModel):
+    metric_key: str
+    thresholds: dict[str, float] = Field(default_factory=dict)
+
+
+class HardwareContractResponse(BaseModel):
+    ingestion_endpoint: str
+    simulation_endpoint: str
+    supported_connectivity: list[str] = Field(default_factory=list)
+    expected_payload_shape: dict[str, Any] = Field(default_factory=dict)
+    notes: list[str] = Field(default_factory=list)
 
 
 class SimulationRequest(BaseModel):

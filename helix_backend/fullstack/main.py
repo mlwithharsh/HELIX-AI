@@ -59,14 +59,17 @@ from .smart_parks.schemas import (
     DashboardBundleResponse,
     DashboardSummaryResponse,
     DeviceResponse,
+    HardwareContractResponse,
     IngestReadingsRequest,
     IngestReadingsResponse,
     ParkResponse,
     ParkRiskSummaryResponse,
     ReadingResponse,
+    RegisterDeviceRequest,
     ReportsOverviewResponse,
     SimulationRequest,
     SimulationResponse,
+    ThresholdEntryResponse,
     UpdateWorkOrderRequest,
     WorkOrderResponse,
     ZoneResponse,
@@ -394,6 +397,11 @@ async def list_smart_park_devices(_: AuthDep, __: RateDep, park_id: str | None =
     return smart_parks_repository.list_devices(park_id=park_id)
 
 
+@app.post("/api/smart-parks/devices", response_model=DeviceResponse)
+async def register_smart_park_device(payload: RegisterDeviceRequest, _: AuthDep, __: RateDep) -> DeviceResponse:
+    return smart_parks_repository.register_device(payload)
+
+
 @app.get("/api/smart-parks/readings", response_model=list[ReadingResponse])
 async def list_smart_park_readings(
     _: AuthDep,
@@ -413,6 +421,38 @@ async def ingest_smart_park_readings(payload: IngestReadingsRequest, _: AuthDep,
 @app.post("/api/smart-parks/simulate", response_model=SimulationResponse)
 async def simulate_smart_parks(payload: SimulationRequest, _: AuthDep, __: RateDep) -> SimulationResponse:
     return smart_parks_repository.run_simulation(ticks=payload.ticks, park_id=payload.park_id)
+
+
+@app.get("/api/smart-parks/thresholds", response_model=list[ThresholdEntryResponse])
+async def list_smart_park_thresholds(_: AuthDep, __: RateDep) -> list[ThresholdEntryResponse]:
+    return smart_parks_repository.list_thresholds()
+
+
+@app.get("/api/smart-parks/hardware-contract", response_model=HardwareContractResponse)
+async def get_smart_park_hardware_contract(_: AuthDep, __: RateDep) -> HardwareContractResponse:
+    return HardwareContractResponse(
+        ingestion_endpoint="/api/smart-parks/readings/ingest",
+        simulation_endpoint="/api/smart-parks/simulate",
+        supported_connectivity=["lorawan", "nbiot", "simulator", "manual"],
+        expected_payload_shape={
+            "readings": [
+                {
+                    "device_id": "device-uuid-or-slug",
+                    "metric_key": "soil_moisture_pct",
+                    "metric_value": 28.4,
+                    "unit": "%",
+                    "recorded_at": "2026-04-13T18:00:00Z",
+                    "source": "hardware",
+                    "metadata": {"gateway_id": "gw-01"},
+                }
+            ]
+        },
+        notes=[
+            "One request can contain batched readings from a gateway uplink.",
+            "Unknown device_ids are ignored rather than failing the full batch.",
+            "Threshold breaches automatically create alerts, and critical breaches also create work orders.",
+        ],
+    )
 
 
 @app.get("/api/smart-parks/alerts", response_model=list[SmartParkAlertResponse])

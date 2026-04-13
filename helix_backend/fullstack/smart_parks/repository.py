@@ -23,8 +23,10 @@ from .schemas import (
     ParkResponse,
     ParkRiskSummaryResponse,
     ReadingResponse,
+    RegisterDeviceRequest,
     ReportsOverviewResponse,
     SimulationResponse,
+    ThresholdEntryResponse,
     UpdateWorkOrderRequest,
     WorkOrderResponse,
     ZoneResponse,
@@ -274,6 +276,34 @@ class SmartParksRepository:
         with self._connect() as conn:
             rows = conn.execute(query, params).fetchall()
         return [self._device_from_row(row) for row in rows]
+
+    def register_device(self, payload: RegisterDeviceRequest) -> DeviceResponse:
+        record_id = str(uuid4())
+        now = utc_now_iso()
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO devices (
+                    id, park_id, zone_id, name, device_type, connectivity, status, battery_level,
+                    firmware_version, last_seen_at, metadata, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, 'online', ?, ?, NULL, ?, ?, ?)
+                """,
+                (
+                    record_id,
+                    payload.park_id,
+                    payload.zone_id,
+                    payload.name,
+                    payload.device_type,
+                    payload.connectivity,
+                    payload.battery_level,
+                    payload.firmware_version,
+                    json.dumps(payload.metadata),
+                    now,
+                    now,
+                ),
+            )
+            row = conn.execute("SELECT * FROM devices WHERE id = ?", (record_id,)).fetchone()
+        return self._device_from_row(row)
 
     def list_readings(self, park_id: str | None = None, device_id: str | None = None, limit: int = 100) -> list[ReadingResponse]:
         query = "SELECT * FROM telemetry_readings"
@@ -690,3 +720,6 @@ class SmartParksRepository:
             work_orders=self.list_work_orders(),
             park_risks=self.park_risk_summary(),
         )
+
+    def list_thresholds(self) -> list[ThresholdEntryResponse]:
+        return [ThresholdEntryResponse(metric_key=metric_key, thresholds=thresholds) for metric_key, thresholds in THRESHOLDS.items()]
